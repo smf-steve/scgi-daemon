@@ -1,3 +1,7 @@
 *~
 \#*
 .\#
+gen-request
+sample.bin
+scgi-launch
+scgi2env-exec
