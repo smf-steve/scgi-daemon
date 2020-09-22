@@ -13,6 +13,8 @@
 
 #define NONZERO (!0)
 
+#define next_start(p) { while ( *p != '\0' ) p++; p++; }
+
 int main(int argc, char * argv[]) {
        int request_size = 0;
        int body_size = 0;
@@ -20,8 +22,8 @@ int main(int argc, char * argv[]) {
        char buffer[MAX_BUFFER];
        char *p;
        
-       char _name[MAX_BUFFER];
-       char _value[MAX_BUFFER];
+       char *_name;
+       char *_value;
 
        
        scanf("%d:", &request_size);
@@ -37,15 +39,16 @@ int main(int argc, char * argv[]) {
        p = buffer;
 
        /* The first header must for the CONTENT_LENGTH */
-       sscanf(p, CONTENT_LENGTH); p += sizeof(CONTENT_LENGTH) + 1 ;
-       sscanf(p, "%s", _value); p += strlen(CONTENT_LENGTH) + strlen(_value) + 2;
-       setenv(_name, _value, NONZERO);
+       sscanf(p, CONTENT_LENGTH);  next_start(p);
+       setenv(CONTENT_LENGTH, p, NONZERO); 
 
-       body_size = atoi(_value);  /* Unnecessary, just following the protocol */
-					    
-       while (p <= (buffer + request_size)) {
-	 sscanf(p, "%s%s", _name, _value); p += strlen(_name) + strlen(_value) + 2;
-         setenv(_name, _value, NONZERO);
+       body_size = atoi(p);
+       next_start(p);
+       
+       while (p < (buffer + request_size)) {
+	 _name = p; next_start(p);
+	 _value = p; next_start(p)
+	 setenv(_name, _value, NONZERO);
 
 	 /* Per the Protocol, check for the SCGI_NAME */
 	 if (! strcmp(_name, SCGI_NAME)) {
