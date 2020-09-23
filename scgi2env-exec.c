@@ -22,11 +22,12 @@
 /*         Content-Type: text/plain                                   */
 /*                                                                    */
 /* Assumptions:                                                       */
-/*     - the size of the <header> is MAX_BUFFER                       */
-/*     - the 'Status' respone is assumed to be '200' and emitted      */
+/*     - all necessary env variables are provided in the header       */
+/*     - maxium env variables to pass is MAX_ENV_COUNT                */
+/*     - the 'Status' response is assumed to be '200' and emitted     */
 /*     - the 'program' called must provide the Content-Type header    */
 /*     - the 'program' called is responsible for reading the <body>   */
-
+#define MAX_ENV_COUNT 100
 
 /* Usage:  scgi2env-exec <PROGRAM>                                    */
 /* Return Values:                                                     */
@@ -35,7 +36,9 @@
 #define RETVAL_UNABLE_TO_EXEC (2)
 #define RETVAL_MISSING_CONTENT_LENGTH (3)
 #define RETVAL_INVALID_SCGI (4)
-#define RETVAL_OTHER (5)
+#define RETVAL_TOO_MANY_ENVS (5)
+#define RETVAL_OTHER (6)
+
 
 #define exit_error(b,v) if (b) exit(v); 
 
@@ -53,12 +56,16 @@
 #define NONZERO (!0)
 #define next_start(p) { while ( *p != '\0' ) p++; p++; }
 
-int main(int argc, char * argv[]) {
+#define append_env(n,v) (*(v-1) = '=', n)
+
+int main(int argc, char * argv[], char **envp) {
   int header_size = 0;
   int body_size = 0;
   int return_value = 0;
   char scgi_version;
 
+  char * new_environment[MAX_ENV_COUNT];
+  
   BYTE * buffer;         /* A buffer for the <header>                                        */
 
   /* Determine the size of the header, and place the header into the buffer, consume the "," */
@@ -76,45 +83,57 @@ int main(int argc, char * argv[]) {
   exit_error((return_value != ','), RETVAL_PROTOCOL_ERROR);
 
 
-  /* PROCESS THE HEADER */
+  /* PROCESS THE HEADER and create the ENV */
   {
     BYTE * p = buffer;     /* Use p as a walking pointer as we process the buffer.           */
     BYTE *_name, *_value;  /* Marker pointers for the start of the current _name and _value  */
+    int env_count = 0;
 
     /* Read each of the header lines and place each into the Environment */
     {
       /* read the required CONTENT_LENGTH <header> line */
-      return_value = strcmp(p, CONTENT_LENGTH);  
+
+      _name = p; next_start(p);
+      _value = p; next_start(p);
+
+      return_value = strcmp(_name, CONTENT_LENGTH);  
       exit_error((return_value != 0), RETVAL_MISSING_CONTENT_LENGTH);
 
-      next_start(p);
-      setenv(CONTENT_LENGTH, p, NONZERO); 
 
-      body_size = atoi(p);
-      next_start(p);
+      new_environment[env_count] = append_env(_name, _value);
+      env_count ++;
+
+      body_size = atoi(_value);
+
 
       /* Process one or more <header> lines */
       while (p < (buffer + header_size)) {
 	_name = p; next_start(p);
 	_value = p; next_start(p);
-	setenv(_name, _value, NONZERO);
 
 	/* Per the Protocol, check for the SCGI_NAME */
 	if (! strcmp(_name, SCGI_NAME)) {
 	  /* _value should be "1" */
 	  scgi_version = _value[0] + _value[1];  
 	}	 
+
+	new_environment[env_count] = append_env(_name, _value);
+	env_count ++;
+
       }
+      new_environment[env_count] = NULL;
+
       exit_error((scgi_version != SCGI_VALUE), RETVAL_INVALID_SCGI);
+      exit_error((env_count >= MAX_ENV_COUNT), RETVAL_TOO_MANY_ENVS);
     }
   }
 
+  
   /* PROCESS THE BODY */
   /* Exec the appropriate program to process the <body> and generate the response */
 
   /* Test: emit the two assumed headers to see what will happen */
-  fprintf(stdin, "Status: 200 Okay\n");
-  fprintf(stdin, "Content-type: text/plain\n");
+  fprintf(stdout, "Status: 200 Okay\n");
 
   /* A better way to handle this is to */
   /*    - fork a sub process  */
@@ -123,9 +142,15 @@ int main(int argc, char * argv[]) {
   /*    - generate the status return header line */
   /*    - validate there is a content-type, if not */
   /*       * emit default content-type */
-  
-  execl(PROGRAM, PROGRAM, (char *) NULL);
-  exit(RETVAL_UNABLE_TO_EXEC);
+
+  {
+    char * my_env[] = {
+		       "CONTENT_TYPE=tester",
+		       "SCRIPT_FILENAME= hello this is it",
+		       NULL};
+    execle(PROGRAM, PROGRAM, (char *) NULL, new_environment);
+    exit(RETVAL_UNABLE_TO_EXEC);
+  }
 }
 
 
