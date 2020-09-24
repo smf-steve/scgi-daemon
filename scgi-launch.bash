@@ -30,14 +30,15 @@ PROGRAM=$3
 
 [ $# == 3 ] || { echo "Usage:  scgi-launch HOSTNAME PORT PROGRAM" ; exit 1 ; }
 
-socket -B ${HOSTNAME} -s ${PORT}  -l -f -q -p "scgi2env-exec ${PROGRAM}"
+socket -B ${HOSTNAME} -s ${PORT}  -l -f -q -p "./scgi2env-exec ${PROGRAM}"
      # Arguments to the socket command:
      #   -B: bind the socket to the local ${HOSTNAME}
      #   -s: a server-side socket is created on ${PORT}, the default is '2020'
      #   -f: fork a child process for each connection
      #   -l: loop to receive additional connections
      #   -q: DO I NEED TO QUIT?
-     #   -p: execute the program 'scgi2env-exec'
+     #   -p: execute the program './scgi2env-exec'
+     #       Note that the program cannot be a plain name.
 
 
 
