@@ -153,7 +153,7 @@ int main(int argc, char * argv[], char **envp) {
     fprintf(stdout, "Status: 503 Service Unavailable\n");
     fprintf(stdout, "Content-type: text/plain\n");
     fprintf(stdout, "\n");
-    fprintf(stdout, "Unsuccessful in execle %s\n");
+    fprintf(stdout, "Unsuccessful in execle %s\n", PROGRAM);
     fprintf(stdout, "\n");
     exit(RETVAL_UNABLE_TO_EXEC);
   }
