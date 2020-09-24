@@ -1,0 +1,36 @@
+Documentation:
+    - Update the README.md file to further explain the project
+
+Test-Cases:
+    - Create additional test cases...
+
+scgi2env-exec:
+    - modify the program to use the URI to selective call $PROGRAM
+      (currently the PROGRAM is provided as arguement.
+   
+WebServer:
+   - Write a small script, log-success
+        * to recieve an SCGI request
+	* to log what was receive
+	* to emit a simple payload
+
+   - Configure a web server to allow for a scgi program
+     scgi://localhost/~/scgi/log-success
+	sudo a2enmod proxy_scgi
+	sudo service apache2 restart
+		ProxyPass "~steve/scgi-bin/" "scgi://localhost:4000/"
+
+
+   - Validate that data flows as expected.
+
+   - Determine if Success: 200 is sent by the server
+   
+Docker:
+   - Create a dockerfile to
+      -- create an image from the github context
+      -- autostarts the scgi-launch program
+      -- to include a simple cgi 
+     
+Performance numbers
+   - run the SCGI applcation within a web server
+   - run the SCGI applcation 
