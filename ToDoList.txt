@@ -18,7 +18,7 @@ WebServer:
      scgi://localhost/~/scgi/log-success
 	sudo a2enmod proxy_scgi
 	sudo service apache2 restart
-		ProxyPass "~steve/scgi-bin/" "scgi://localhost:4000/"
+		ProxyPass "/~steve/scgi-bin/" "scgi://localhost:4000/"
 
 
    - Validate that data flows as expected.
