@@ -1,44 +1,46 @@
 #! /bin/bash
 
-# This is a small shell script that is part of the prototype implementation of the scgi-launch program.
+# This is a small shell script that is part of the prototype implementation the scgi-launch system.
 #
+# The scgi-launch system is designed to function as an SCGI daemon that, for each request, launches a CGI program.
 # By use of the scgi-launch program, you can effectively transform a CGI program into a SCGI server for that program.
 #
-# In our implementation, we rely on exist programs used together in a bash script to reduce development time.
+# In our implementation, we rely on existing programs, stitched together via a bash script, to reduce development time.
 #   It is would be straight forward to implement the scgi-launch program in C to improve performance.
 
-# This base script relies on only three existing programs:
+# This bash script relies on only three existing programs:
 #   - socket: manages the server-side TCP socket, and wires this communication to scgi2env-exec program's stdin/out
 #   - scgi2env-exec:  a C program, provided with this project, that performs the following operations:
 #       * reads a SCGI header from STDIN
-#       * inserts the CGI environment variables into the execution environment
+#       * creates an environment structure containing the CGI environment variables
 #       * "exec" the user program
-#   - "program":   a user supplied program that is passed to this script as it's onl arguement.
+#   - "program":   a user supplied program that is passed to this script as it's only arguement.
 
 
-# The steps associates with the 'scgi-launch' is as follows:
-#    Listens on a socket ${HOSTNAME}:${PORT}, via the 'socket' command
-#    Reads an SCGI request
+# The steps associates with the 'scgi-launch' script is as follows:
+#    Listens on a socket ${SCGI_HOST}:${PORT}, via the 'socket' command
+#    Forks the scgi2env-exec program 
+#    Loops back to receive an additional network request
+#    Reads an SCGI request that has been placed on the wire
 #    Creates the CGI environment variables
 #    Executes the CGI program
 
-# Usage:  scgi-launch HOSTNAME PORT PROGRAM
+# Usage:  scgi-launch SCGI_HOST PORT PROGRAM
 
-HOSTNAME=$1
+SCGI_HOST=$1
 PORT=$2 
 PROGRAM=$3
 
-[ $# == 3 ] || { echo "Usage:  scgi-launch HOSTNAME PORT PROGRAM" ; exit 1 ; }
+[ $# == 3 ] || { echo "Usage: scgi-launch SCGI_HOST PORT PROGRAM" ; exit 1 ; }
 
-socket -B ${HOSTNAME} -s ${PORT}  -l -f -q -p "./scgi2env-exec ${PROGRAM}"
+socket -B ${SCGI_HOST} -s ${PORT} -f -l -p "./scgi2env-exec ${PROGRAM}"
      # Arguments to the socket command:
-     #   -B: bind the socket to the local ${HOSTNAME}
-     #   -s: a server-side socket is created on ${PORT}, the default is '2020'
+     #   -B: bind the socket to the ip of ${SCGI_HOST}
+     #   -s: a server-side socket is created on ${PORT}
      #   -f: fork a child process for each connection
-     #   -l: loop to receive additional connections
-     #   -q: DO I NEED TO QUIT?
+     #   -l: loop to receive the next network connection
      #   -p: execute the program './scgi2env-exec'
-     #       Note that the program cannot be a plain name.
+     #       Note that the program provide must provide a relative or absolute path.
 
 
 
