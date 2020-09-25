@@ -43,8 +43,8 @@ socket -B ${SCGI_HOST} -s ${PORT} -f -l -p "${PROG_PATH}/scgi2env-exec ${PROGRAM
      #   -s: a server-side socket is created on ${PORT}
      #   -f: fork a child process for each connection
      #   -l: loop to receive the next network connection
-     #   -p: execute the program './scgi2env-exec'
-     #       Note that the program provide must provide a relative or absolute path.
+     #   -p: execute the supporting program: 'scgi2env-exec'
+
 
 
 
