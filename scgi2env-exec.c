@@ -1,10 +1,11 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-
-/* Protocol Definition:  http://python.ca/scgi/protocol.txt           */
+/**********************************************************************/
+/*  The scgi2env-exec programs:                                       */
+/*     - reads an SCGI request,                                       */
+/*     - prepares an environmment with CGI variables                  */
+/*     - exec-s the program provided as its only arguement.           */
+/*                                                                    */
+/**********************************************************************/
+/* SCGI Protocol Definition:  http://python.ca/scgi/protocol.txt      */
 /*                                                                    */
 /* Syntax:  P         ->  <h_size> ":" <header> "," <body>            */
 /*          <header>  ->  "CONTENT_LENGTH" '\0' <b_size>              */
@@ -12,10 +13,11 @@
 /*          <h_size>   : the size in bytes for the <header>           */
 /*          <b_size>   : the size in bytes for the <body>             */
 /*                                                                    */
-/* Requirements:                                                      */
+/* Input Requirements:                                                */
 /*     - CONTENT_LENGTH must be the first header field                */
 /*     - A header field (name/value) SCGI/1 must exist                */
 /*     - There are no duplicate <header> "_name"s                     */
+/* Output Requirements:                                               */
 /*     - The response header must include a Status and Content-type:  */
 /*     * e.g.,                                                        */
 /*         Status: 200 okay                                           */
@@ -23,13 +25,14 @@
 /*                                                                    */
 /* Assumptions:                                                       */
 /*     - all necessary env variables are provided in the header       */
-/*     - maxium env variables to pass is MAX_ENV_COUNT                */
-/*     - the 'Status' response is assumed to be '200' and emitted     */
-/*     - the 'program' called must provide the Content-Type header    */
+/*     - The maximum number of env variables is <MAX_ENV_COUNT>       */
+/*     - the 'Status' response, if ommited, is assumed to be '200'    */
+/*     - the 'program' called should provide the Status header        */
+/*     - the 'program' called should provide the Content-Type header  */
 /*     - the 'program' called is responsible for reading the <body>   */
-#define MAX_ENV_COUNT 100
-
+/*                                                                    */
 /* Usage:  scgi2env-exec <PROGRAM>                                    */
+/*                                                                    */
 /* Return Values:                                                     */
 #define RETVAL_SUCCESS (0)
 #define RETVAL_PROTOCOL_ERROR (1)
@@ -38,49 +41,56 @@
 #define RETVAL_INVALID_SCGI (4)
 #define RETVAL_TOO_MANY_ENVS (5)
 #define RETVAL_OTHER (6)
+/*                                                                    */
+/**********************************************************************/
 
 
-#define exit_error(b,v) if (b) exit(v); 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#define BYTE char
+#define NONZERO (!0)
 
+#define MAX_ENV_COUNT 100
 #define PROGRAM (argv[1])
 
-
-/* Associated with the HEADER */
+/* Values associated with the Header, provided for readiblity */
 #define CONTENT_LENGTH "CONTENT_LENGTH"
 #define SCGI_NAME "SCGI"
 #define SCGI_VALUE '1'
 
-
-#define BYTE char
-#define NONZERO (!0)
+/* A simple macro used to walk the pointer p thorugh the buffer, */
+/* looking for the BYTE immediately following the next NULL char */
 #define next_start(p) { while ( *p != '\0' ) p++; p++; }
 
+/* A simple macro used to test for an error and then exit the    */
+/* program used to make the code more readabable                 */
+#define exit_error(b,v) if (b) exit(v); 
+
+/* A simple macro that transforms the null char before _value to */
+/* to an "=".   I.e., the string    "<_name> \0 <_value> \0"     */
+/*            is tranformed into    "<_name> = <_value> \0"      */
 #define append_env(n,v) (*(v-1) = '=', n)
+
 
 int main(int argc, char * argv[], char **envp) {
   int header_size = 0;
   int body_size = 0;
-  int return_value = 0;
+  int retval = 0;
   char scgi_version;
 
-  char * new_environment[MAX_ENV_COUNT];
+  char * new_env[MAX_ENV_COUNT];
   
   BYTE * buffer;         /* A buffer for the <header>                                        */
 
-  /* Determine the size of the header, and place the header into the buffer, consume the "," */
+  /* Determine the size of the header, and place the header and the "," into the buffer      */
   /*    -- leaving just the body on stdin.                                                   */
-  return_value = scanf("%d:", &header_size);
-  exit_error((return_value != 1), RETVAL_PROTOCOL_ERROR);
-  
-  buffer = malloc(sizeof(BYTE) * (header_size+1));
-  exit_error((buffer == NULL), RETVAL_OTHER);
-      
-  return_value = fread(buffer, 1, header_size+1, stdin);
-  exit_error((return_value != header_size+1), RETVAL_OTHER);
-  
-  return_value = buffer[header_size];
-  exit_error((return_value != ','), RETVAL_PROTOCOL_ERROR);
+  retval = scanf("%d:", &header_size);              exit_error((retval != 1), RETVAL_PROTOCOL_ERROR);
+  buffer = malloc(sizeof(BYTE) * (header_size+1));  exit_error((buffer == NULL), RETVAL_OTHER);
+  retval = fread(buffer, 1, header_size+1, stdin);  exit_error((retval != header_size+1), RETVAL_OTHER);
+  retval = buffer[header_size];                     exit_error((retval != ','), RETVAL_PROTOCOL_ERROR);
 
 
   /* PROCESS THE HEADER and create the ENV */
@@ -92,36 +102,33 @@ int main(int argc, char * argv[], char **envp) {
     /* Read each of the header lines and place each into the Environment */
     {
       /* read the required CONTENT_LENGTH <header> line */
-
-      _name = p; next_start(p);
+      _name  = p; next_start(p);
       _value = p; next_start(p);
 
-      return_value = strcmp(_name, CONTENT_LENGTH);  
-      exit_error((return_value != 0), RETVAL_MISSING_CONTENT_LENGTH);
+      retval = strcmp(_name, CONTENT_LENGTH);       exit_error((retval != 0), RETVAL_MISSING_CONTENT_LENGTH);
+      // body_size = atoi(_value);   The body_size is not used.
 
-
-      new_environment[env_count] = append_env(_name, _value);
+      new_env[env_count] = append_env(_name, _value);
       env_count ++;
-
-      body_size = atoi(_value);
+      /* CONTENT_LENGTH <header> has been validated */
 
 
       /* Process one or more <header> lines */
       while (p < (buffer + header_size)) {
-	_name = p; next_start(p);
+	_name  = p; next_start(p);
 	_value = p; next_start(p);
 
 	/* Per the Protocol, check for the SCGI_NAME */
 	if (! strcmp(_name, SCGI_NAME)) {
-	  /* _value should be "1" */
+	  /* value[1] should be '\0'. Hence, adding it to _value[0] has no impact */
 	  scgi_version = _value[0] + _value[1];  
 	}	 
 
-	new_environment[env_count] = append_env(_name, _value);
+	new_env[env_count] = append_env(_name, _value);
 	env_count ++;
 
       }
-      new_environment[env_count] = NULL;
+      new_env[env_count] = NULL;
 
       exit_error((scgi_version != SCGI_VALUE), RETVAL_INVALID_SCGI);
       exit_error((env_count >= MAX_ENV_COUNT), RETVAL_TOO_MANY_ENVS);
@@ -130,25 +137,19 @@ int main(int argc, char * argv[], char **envp) {
 
   
   /* PROCESS THE BODY */
-  /* Exec the appropriate program to process the <body> and generate the response */
-
-  /* Test: emit the two assumed headers to see what will happen */
-  fprintf(stdout, "Status: 200 Okay\n");
-
-  /* A better way to handle this is to */
-  /*    - fork a sub process  */
-  /*    - wire the child's stdout to a part's file */
-  /*    - obtain the return value of the child */
-  /*    - generate the status return header line */
-  /*    - validate there is a content-type, if not */
-  /*       * emit default content-type */
-
   {
-    char * my_env[] = {
-		       "CONTENT_TYPE=tester",
-		       "SCRIPT_FILENAME= hello this is it",
-		       NULL};
-    execle(PROGRAM, PROGRAM, (char *) NULL, new_environment);
+    /* Exec the appropriate program to process the <body> and generate the response */
+    
+    /* Here we ASSUME that the called PROGRAM generates a valid response     */
+    /* If we remove this assumption than the following steps should be taken */
+    /*     1. for a child process                                            */
+    /*     2. wire the child's stdin to the parents stdin                    */
+    /*     3. reaad the results of the child (return value and output)       */
+    /*     4. validate the assuptions, if not                                */
+    /*        a. emit the appropriate header values                          */
+    /*     5. write the childs output to stdout                              */
+    
+    execle(PROGRAM, PROGRAM, (char *) NULL, new_env);
 
     fprintf(stdout, "Status: 503 Service Unavailable\n");
     fprintf(stdout, "Content-type: text/plain\n");
@@ -158,12 +159,3 @@ int main(int argc, char * argv[], char **envp) {
     exit(RETVAL_UNABLE_TO_EXEC);
   }
 }
-
-
-
-/* program notes                     */
-/* if [ "$SCGI" -eq "1" ] ; then     */
-/*   echo "Status: 200 Okay"         */
-/*   echo "Content-type: text/plain" */
-/* fi                                */
-/*                                   */
