@@ -8,7 +8,10 @@ Documentation:
 	   sudo service apache2 restart
 	
 
+
 scgi2env-exec:
+    - create better output when the PROGRAM is not available or executes incorrectly
+    
     - modify the program to use the URI to selective call $PROGRAM
       (currently the PROGRAM is provided as arguement.
    
