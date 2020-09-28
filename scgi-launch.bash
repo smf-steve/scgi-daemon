@@ -37,11 +37,12 @@ PROG_PATH=$(dirname $0)
 
 
 
-socket -B ${SCGI_HOST} -s ${PORT} -f -l -p "${PROG_PATH}/scgi2env-exec ${PROGRAM}"
+socket -B ${SCGI_HOST} -s ${PORT} -f -q -l -p "${PROG_PATH}/scgi2env-exec ${PROGRAM}"
      # Arguments to the socket command:
      #   -B: bind the socket to the ip of ${SCGI_HOST}
      #   -s: a server-side socket is created on ${PORT}
      #   -f: fork a child process for each connection
+     #   -q: quit: The connection is closed when an end-of-file condition occurs on stdin
      #   -l: loop to receive the next network connection
      #   -p: execute the supporting program: 'scgi2env-exec'
 
