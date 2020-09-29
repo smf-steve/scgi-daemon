@@ -18,29 +18,30 @@
 
 
 # The steps associates with the 'scgi-launch' script is as follows:
-#    Listens on a socket ${SCGI_HOST}:${PORT}, via the 'socket' command
+#    Listens on a socket ${ADDR}:${PORT}, via the 'socket' command
 #    Forks the scgi2env-exec program 
 #    Loops back to receive an additional network request
 #    Reads an SCGI request that has been placed on the wire
 #    Creates the CGI environment variables
 #    Executes the CGI program
 
-# Usage:  scgi-launch SCGI_HOST PORT PROGRAM
+# Usage:  scgi-launch ADDR PORT CGI_PROGRAM
 
-SCGI_HOST=$1
+ADDR=$1
 PORT=$2 
-PROGRAM=$3
+CGI_PROGRAM=$3
 
-[ $# == 3 ] || { echo "Usage: scgi-launch SCGI_HOST PORT PROGRAM" ; exit 1 ; }
+[ $# == 3 ] || { echo "Usage: scgi-launch ADDR PORT CGI_PROGRAM" ; exit 1 ; }
 
 PROG_PATH=$(dirname $0)
 
 
 
-socket -B ${SCGI_HOST} -s ${PORT} -f -q -l -p "${PROG_PATH}/scgi2env-exec ${PROGRAM}"
+socket -B ${ADDR} -s ${PORT} -b -f -q -l -p "${PROG_PATH}/scgi2env-exec ${CGI_PROGRAM}"
      # Arguments to the socket command:
-     #   -B: bind the socket to the ip of ${SCGI_HOST}
+     #   -B: bind the socket to the ip of ${ADDR}
      #   -s: a server-side socket is created on ${PORT}
+     #   -b: background the process as a daemon
      #   -f: fork a child process for each connection
      #   -q: quit: The connection is closed when an end-of-file condition occurs on stdin
      #   -l: loop to receive the next network connection
