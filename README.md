@@ -69,16 +69,18 @@ docker start ${SCGI_ID}
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
 * ProxyPass Directive:  `ProxyPass "/~steve/scgi-bin/" "scgi://localhost:4000/"`
 * Define Environment Variables:
-  * URI_BASE: /~steve/
-  * SCGI_NAME: scgi-bin
-  * SCGI_TAG: scgi-deamon.steve
+  * URI_BASE: /~steve/scgi-bin/
+  * SCGI_NAME: emit-env
+  * SCGI_TAG: emit-env.d
   * ADDR: localhost
   * PORT: 4000
   * CGI_PROGRAM: emit-env.cgi (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
+ Note that the host server for this example is ssh.sandbox.csun.edu.  www.sandbox.csun.edu function as a reverse proxy.
 
 
 # Enhancements:
 * Merge the socket and scgi2env-exec into a single executable
 * Enhance the scgi-daemon to have a number worker threads/process to increase performance
 * Modify the process to all the first path component in the URI to identify the name of the CGI program
+* Retool the project to use [podman](http://docs.podman.io/en/latest/)
    
