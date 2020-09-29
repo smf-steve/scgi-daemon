@@ -83,4 +83,6 @@ docker start ${SCGI_ID}
 * Enhance the scgi-daemon to have a number worker threads/process to increase performance
 * Modify the process to all the first path component in the URI to identify the name of the CGI program
 * Retool the project to use [podman](http://docs.podman.io/en/latest/)
+* Update the Dockerfile to build the scgi2env-exec binary under a multistage approach.
+
    
