@@ -22,7 +22,7 @@ This project was developed as part of a larger project to study the various ways
 * to increase the level of security by the use of containers.
 
 # Architecture
-![Architectural Diagram of the SGI Daemon](https://github.com/csuntechlab/scgi-daemon/images/architecture.png)
+![Architectural Diagram of the SGI Daemon](/images/architecture.png)
 
 # Installation Methods:
 You can install this package either from source or as a docker container.  In both cases, you need to configure the web server to act as a proxy to your SCGI program.  Of course, you can talk directly to your SCGI daemon, but you would need to transmit a valid SCGI request using the wireprotocol.
