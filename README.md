@@ -54,7 +54,7 @@ cd ..
 ```
 You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, using the socket program. E.g.,
 
-```socket ${ADDR} ${PORT} << ./scgi-daemon/TestingCode/simple.request```
+```socket ${ADDR} ${PORT} < ./scgi-daemon/TestingCode/simple.request```
 
 ## Docker Installation for ${CGI_PROGRAM}:
 ```
