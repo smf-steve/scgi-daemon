@@ -15,8 +15,9 @@ ENV PATH="/scgi-daemon:$PATH"
 
 COPY scgi-launch.bash	       /scgi-daemon/scgi-launch
 COPY scgi2env-exec	       /scgi-daemon/
-COPY TestingCode/emit-env.cgi  /scgi-daemon/
+COPY ${PROGRAM}		       /scgi-daemon/cgi-program
 
-#ENTRYPOINT /scgi-daemon/scgi-launch localhost 8080 /scgi-daemon/cgi-program
 
-EXPOSE 8080/tcp
+EXPOSE ${PORT}
+CMD /scgi-daemon/scgi-launch localhost ${PORT} /scgi-daemon/cgi-program
+
