@@ -59,7 +59,7 @@ You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, 
 ## Docker Installation for $CGI_PROGRAM:
 ```
 docker build -t ${SCGI_ID} https://github.com/csuntechlab/scgi-daemon.git
-docker create --name ${SCGI_ID} -p $PORT:8080 ${SCGI_ID}
+docker create --name ${SCGI_ID} -p ${PORT}:8080 ${SCGI_ID}
 docker copy ${CGI_PROGRAM} ${SCGI_ID}:/scgi-daemon/cgi-program
 docker start ${SCGI_ID}
 ```
