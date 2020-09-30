@@ -29,15 +29,18 @@
 
 ADDR=$1
 PORT=$2 
-CGI_PROGRAM=$3
+CGI_PROGRAM="${PWD}/$3"
 
-[ $# == 3 ] || { echo "Usage: scgi-launch ADDR PORT CGI_PROGRAM" ; exit 1 ; }
+SCGI2ENV_EXEC="${PWD}$(dirname $0)/scgi2env-exec"
 
-PROG_PATH=$(dirname $0)
+[ $# == 3 ]             || { echo "Usage: scgi-launch ADDR PORT CGI_PROGRAM" ; exit 1 ; }
+[ -f ${SCGI2ENV_EXEC} ] || { echo "Error: scgi2env-exec program not found"   ; exit 1 ; }
+[ -x ${CGI_PROGRAM} ]   || { echo "Error: ${CGI_PROGRAM} program is invalid" ; exit 1 ; }
 
 
 
-socket -B ${ADDR} -s ${PORT} -b -f -q -l -p "${PROG_PATH}/scgi2env-exec ${CGI_PROGRAM}"
+
+socket -B ${ADDR} -s ${PORT} -b -f -q -l -p "${SCGI2ENV_EXEC} ${CGI_PROGRAM}"
      # Arguments to the socket command:
      #   -B: bind the socket to the ip of ${ADDR}
      #   -s: a server-side socket is created on ${PORT}
