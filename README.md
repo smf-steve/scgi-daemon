@@ -76,9 +76,8 @@ docker start ${SCGI_ID}
  ADDR=localhost
  PORT=4000
  CGI_PROGRAM=~steve/public_html/cgi-bin/emit-env.cgi 
- # (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
  ```
-## Notes:
+## Note:
 * The source code for the example $CGI_PROGRAM can be obtained from https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi.
 * A the hosting server for this example is ssh.sandbox.csun.edu.  This server is fronted by the server, www.sandbox.csun.edu, which serves as a reverse proxy.
 
