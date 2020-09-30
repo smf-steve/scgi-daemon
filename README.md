@@ -61,7 +61,7 @@ You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, 
 sudo docker build --tag ${SCGI_TAG} https://github.com/csuntechlab/scgi-daemon.git
 sudo docker create --name ${SCGI_TAG} --publish ${PORT}:8080 ${SCGI_TAG}
 sudo docker start ${SCGI_TAG}
-sudo docker copy ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
+sudo docker cp ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
 sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost 8080 /scgi-daemon/cgi-program
 ```
 
