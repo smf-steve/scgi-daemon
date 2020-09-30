@@ -58,7 +58,7 @@ You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, 
 
 ## Docker Installation for ${CGI_PROGRAM}:
 ```
-sudo docker build --tag ${SCGI_TAG} https://github.com/csuntechlab/scgi-daemon.git
+sudo docker build --tag ${SCGI_TAG} --build-arg PORT=${PORT} --build-arg PROGRAM=${CGI_PROGRAM} https://github.com/csuntechlab/scgi-daemon.git
 sudo docker create --name ${SCGI_TAG} --network host -expose ${PORT} -it ${SCGI_TAG} /bin/bash
 sudo docker start ${SCGI_TAG}
 sudo docker cp ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
@@ -90,6 +90,7 @@ In the above installation instructions, we presume we are running linux host.
 * Modify the process to all the first path component in the URI to identify the name of the CGI program
 * Retool the project to use [podman](http://docs.podman.io/en/latest/)
 * Update the Dockerfile to build the scgi2env-exec binary under a multistage approach.
+* Update the Dockerfile to build the an image layer for the CGI_PROGRAM
 
 # Performance Numbers:
 * Generate performance numbers comparing SCGI-daemon with docker.cgi
