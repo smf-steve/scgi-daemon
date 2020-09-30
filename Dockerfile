@@ -11,13 +11,13 @@ LABEL version="0.1"
 LABEL description="The image contains the SCGI launch system"
 LABEL maintainer="Steven.Fitzgerald@csun.edu"
 
-RUN mkdir /scgi-daemon
+WORKDIR /scgi-daemon
 ENV PATH="/scgi-daemon:$PATH"
 
 
 COPY scgi-launch.bash	       /scgi-daemon/scgi-launch
 COPY scgi2env-exec	       /scgi-daemon/
-COPY ${PROGRAM}		       /scgi-daemon/cgi-program
+ADD  ${PROGRAM}		       /scgi-daemon/cgi-program
 
 
 EXPOSE ${PORT}
