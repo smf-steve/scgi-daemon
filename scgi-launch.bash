@@ -31,7 +31,7 @@ ADDR=$1
 PORT=$2 
 CGI_PROGRAM="${PWD}/$3"
 
-SCGI2ENV_EXEC="${PWD}$(dirname $0)/scgi2env-exec"
+SCGI2ENV_EXEC="${PWD}/$(dirname $0)/scgi2env-exec"
 
 [ $# == 3 ]             || { echo "Usage: scgi-launch ADDR PORT CGI_PROGRAM" ; exit 1 ; }
 [ -f ${SCGI2ENV_EXEC} ] || { echo "Error: scgi2env-exec program not found"   ; exit 1 ; }
