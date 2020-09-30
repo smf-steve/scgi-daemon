@@ -54,9 +54,9 @@ cd ..
 ```
 You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, using the socket program. E.g.,
 
-```socket ${ADDR} ${PORT} << SCGI_request.binary```
+```socket ${ADDR} ${PORT} << ./scgi-daemon/TestingCode/simple.request```
 
-## Docker Installation for $CGI_PROGRAM:
+## Docker Installation for ${CGI_PROGRAM}:
 ```
 docker build -t ${SCGI_ID} https://github.com/csuntechlab/scgi-daemon.git
 docker create --name ${SCGI_ID} -p ${PORT}:8080 ${SCGI_ID}
@@ -75,9 +75,12 @@ docker start ${SCGI_ID}
  SCGI_TAG=emit-env.d
  ADDR=localhost
  PORT=4000
- CGI_PROGRAM=emit-env.cgi # (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
+ CGI_PROGRAM=~steve/public_html/cgi-bin/emit-env.cgi 
+ # (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
  ```
- Note that the host server for this example is ssh.sandbox.csun.edu.  www.sandbox.csun.edu function as a reverse proxy.
+## Notes:
+* The source code for the example $CGI_PROGRAM can be obtained from https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi.
+* A the hosting server for this example is ssh.sandbox.csun.edu.  This server is fronted by the server, www.sandbox.csun.edu, which serves as a reverse proxy.
 
 
 # Enhancements:
