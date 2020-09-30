@@ -13,7 +13,7 @@ RUN mkdir /scgi-daemon
 ENV PATH="/scgi-daemon:$PATH"
 
 
-COPY scgi-daemon.bash	       /scgi-daemon/scgi-launch
+COPY scgi-launch.bash	       /scgi-daemon/scgi-launch
 COPY scgi2env-exec	       /scgi-daemon/
 COPY TestingCode/emit-env.cgi  /scgi-daemon/
 
