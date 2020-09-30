@@ -58,14 +58,15 @@ You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, 
 
 ## Docker Installation for ${CGI_PROGRAM}:
 ```
-sudo docker build --tag ${SCGI_TAG} --build-arg PORT=${PORT} --build-arg PROGRAM=${CGI_PROGRAM} https://github.com/csuntechlab/scgi-daemon.git
-sudo docker create --name ${SCGI_TAG} --network host -expose ${PORT} -it ${SCGI_TAG} /bin/bash
+sudo docker build --tag ${SCGI_TAG} --build-arg PORT=${PORT} https://github.com/csuntechlab/scgi-daemon.git
+sudo docker create --name ${SCGI_TAG} --network host --expose ${PORT} -it ${SCGI_TAG} /bin/bash
 sudo docker start ${SCGI_TAG}
 sudo docker cp ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
-sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost 8080 /scgi-daemon/cgi-program
+sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-daemon/cgi-program
 ```
 ### Note:
 In the above installation instructions, we presume we are running linux host.
+We need a better way to ingress the CGI_PROGRAM into the Container
 
 # Example
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
@@ -79,7 +80,7 @@ In the above installation instructions, we presume we are running linux host.
  PORT=4000
  CGI_PROGRAM=~steve/public_html/cgi-bin/emit-env.cgi 
  ```
-## Note:
+### Note:
 * The source code for the example $CGI_PROGRAM can be obtained from https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi.
 * A the hosting server for this example is ssh.sandbox.csun.edu.  This server is fronted by the server, www.sandbox.csun.edu, which serves as a reverse proxy.
 
