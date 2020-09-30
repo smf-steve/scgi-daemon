@@ -1,4 +1,6 @@
 FROM ubuntu
+ARG PROGRAM
+ARG PORT
 
 RUN apt-get clean && apt-get autoremove
 RUN apt-get update && apt-get install socket
