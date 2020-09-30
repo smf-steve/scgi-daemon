@@ -59,7 +59,7 @@ You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, 
 ## Docker Installation for $CGI_PROGRAM:
 ```
 docker build -t ${SCGI_ID} https://github.com/csuntechlab/scgi-daemon.git
-docker create --name ${SCGI_ID} -p $PORT:8080 ${SCGI_ID}
+docker create --name ${SCGI_ID} -p ${PORT}:8080 ${SCGI_ID}
 docker copy ${CGI_PROGRAM} ${SCGI_ID}:/scgi-daemon/cgi-program
 docker start ${SCGI_ID}
 ```
@@ -69,12 +69,14 @@ docker start ${SCGI_ID}
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
 * ProxyPass Directive:  `ProxyPass "/~steve/scgi-bin/" "scgi://localhost:4000/"`
 * Define Environment Variables:
-  * URI_BASE: /~steve/scgi-bin/
-  * SCGI_NAME: emit-env
-  * SCGI_TAG: emit-env.d
-  * ADDR: localhost
-  * PORT: 4000
-  * CGI_PROGRAM: emit-env.cgi (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
+```
+ URI_BASE=/~steve/scgi-bin/
+ SCGI_NAME=emit-env
+ SCGI_TAG=emit-env.d
+ ADDR=localhost
+ PORT=4000
+ CGI_PROGRAM=emit-env.cgi # (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
+ ```
  Note that the host server for this example is ssh.sandbox.csun.edu.  www.sandbox.csun.edu function as a reverse proxy.
 
 
