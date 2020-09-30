@@ -85,4 +85,8 @@ docker start ${SCGI_ID}
 * Retool the project to use [podman](http://docs.podman.io/en/latest/)
 * Update the Dockerfile to build the scgi2env-exec binary under a multistage approach.
 
+# Performance Numbers:
+* Generate performance numbers comparing SCGI-daemon with docker.cgi
+
+
    
