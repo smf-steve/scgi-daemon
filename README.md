@@ -69,12 +69,12 @@ docker start ${SCGI_ID}
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
 * ProxyPass Directive:  `ProxyPass "/~steve/scgi-bin/" "scgi://localhost:4000/"`
 * Define Environment Variables:
-  * URI_BASE: /~steve/scgi-bin/
-  * SCGI_NAME: emit-env
-  * SCGI_TAG: emit-env.d
-  * ADDR: localhost
-  * PORT: 4000
-  * CGI_PROGRAM: emit-env.cgi (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
+  * URI_BASE=/~steve/scgi-bin/
+  * SCGI_NAME=emit-env
+  * SCGI_TAG=emit-env.d
+  * ADDR=localhost
+  * POR=4000
+  * CGI_PROGRAM=emit-env.cgi # (source https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi)
  Note that the host server for this example is ssh.sandbox.csun.edu.  www.sandbox.csun.edu function as a reverse proxy.
 
 
