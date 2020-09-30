@@ -4,7 +4,8 @@ all: scgi-launch scgi2env-exec
 
 
 scgi-launch: scgi-launch.bash
-	which socket 2>/dev/null || { echo "Install socket program" ; false ; }
+	@which socket 2>/dev/null || { echo "Install socket program" ; false ; }
+	@echo Validated: socket program exists
 	cp scgi-launch.bash scgi-launch
 
 
