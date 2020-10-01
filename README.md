@@ -65,8 +65,9 @@ sudo docker cp ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
 sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-daemon/cgi-program
 ```
 ### Note:
-In the above installation instructions, we presume we are running linux host.
-We need a better way to ingress the CGI_PROGRAM into the Container
+* In the above installation instructions, we presume we are running a linux host with "host" network.
+* With a "bridge" network, you will need to do port mapping:  --host bridge -p {PORT}:{$PORT}
+* We need a better way to ingress the CGI_PROGRAM into the Container
 
 # Example
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
