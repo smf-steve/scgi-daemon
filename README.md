@@ -52,7 +52,7 @@ make  # Compiles the scgi2env-exec.c program, etc.
 cd ..
 ./scgi-daemon/scgi-launch ${ADDR} ${PORT} ${CGI_PROGRAM} 
 ```
-You don't access your SCGI daemon directly via the ${ADDR} and ${PORT} defined, using the socket program. E.g.,
+You can access your SCGI daemon directly via the defined ${ADDR} and ${PORT} defined using the socket program. E.g.,
 
 ```socket ${ADDR} ${PORT} < ./scgi-daemon/TestingCode/simple.request```
 
