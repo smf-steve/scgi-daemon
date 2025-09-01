@@ -12,25 +12,25 @@ A prototype implementation of a SCGI server.  This project utilizes the 'socket'
 
 # PURPOSE:
 *	To allow any CGI program to be invoked under the client-server model as opposed to the fork-exec model
-* To containize the CGI program along with the scgi-daemon, to provide a layer of security
+* To containerize the CGI program along with the scgi-daemon, to provide a layer of security
 * To execute the container either directly on a/the web-server or on a backend server
 
 ## Note:
 This project was developed as part of a larger project to study the various ways to generate dynamic content within a web environment. The overall goal of this study is to determine the best way:
-* to provide maximum flexiblity to fledgling developers as they develop various web applications
-* to eliminate interdependence between these developers and the adminstrators of the web environment
+* to provide maximum flexibility to fledgling developers as they develop various web applications
+* to eliminate interdependence between these developers and the administrators of the web environment
 * to increase the level of security by the use of containers.
 
 # Architecture
-![Architectural Diagram of the SGI Daemon](/images/architecture.png)
+![Architectural Diagram of the CGI Daemon](/images/architecture.pang)
 
 # Installation Methods:
-You can install this package either from source or as a docker container.  In both cases, you need to configure the web server to act as a proxy to your SCGI program.  Of course, you can talk directly to your SCGI daemon, but you would need to transmit a valid SCGI request using the wireprotocol.
+You can install this package either from source or as a docker container.  In both cases, you need to configure the web server to act as a proxy to your SCGI program.  Of course, you can talk directly to your SCGI daemon, but you would need to transmit a valid SCGI request using the wire protocol.
 
-For descriptive purposes, we assume that the webserver will proxy the SCGI server at the following URL: `https://hostname.com/${URI_BASE}/${SCGI_NAME}`
+For descriptive purposes, we assume that the web server will proxy the SCGI server at the following URL: `https://hostname.com/${URI_BASE}/${SCGI_NAME}`
 
 During the installation process, you will refer to the following environment variables, which you need to define.
-* URI_BASE: the assigned URI path associated with the SCGI deamon.
+* URI_BASE: the assigned URI path associated with the SCGI daemon.
 * SCGI_NAME: the name of the used to identify the SCGI daemon within the URI
 * SCGI_TAG: an unique ID for the Docker container. If the SCGI_NAME is globally unique, SCGI_TAG should be set to SCGI_NAME.
 * ADDR: the local address associated with the allocated socket, e.g., 'localhost'
@@ -41,7 +41,7 @@ During the installation process, you will refer to the following environment var
 # Apache Server Configuration:
 * Enable the proxy module on the Apache server: `sudo a2enmod proxy`
 * Enable the proxy_scgi module on the Apache server: `sudo a2enmod proxy_scgi`
-* Include a ProxyPass rule for the SCGI deamon.  E.g, `ProxyPass "${URI_BASE}/${SCGI_NAME}" "scgi://${ADDR}:${PORT}/"`
+* Include a ProxyPass rule for the SCGI daemon.  E.g, `ProxyPass "${URI_BASE}/${SCGI_NAME}" "scgi://${ADDR}:${PORT}/"`
 * Restart the Apache server: `sudo service apache2 restart`
 
 ## Installation from Source:
@@ -67,7 +67,7 @@ sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-da
 ### Note:
 * In the above installation instructions, we presume we are running a linux host with "host" network.
 * With a "bridge" network, you will need to do port mapping:  --host bridge -p {PORT}:{$PORT}
-* We need a better way to ingress the CGI_PROGRAM into the Container
+* We need a better way to egress the CGI_PROGRAM into the Container
 
 # Example
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env
@@ -91,8 +91,8 @@ sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-da
 * Enhance the scgi-daemon to have a number worker threads/process to increase performance
 * Modify the process to all the first path component in the URI to identify the name of the CGI program
 * Retool the project to use [podman](http://docs.podman.io/en/latest/)
-* Update the Dockerfile to build the scgi2env-exec binary under a multistage approach.
-* Update the Dockerfile to build the an image layer for the CGI_PROGRAM
+* Update the Docker file to build the scgi2env-exec binary under a multistage approach.
+* Update the Docker file to build the an image layer for the CGI_PROGRAM
 
 # Performance Numbers:
 * Generate performance numbers comparing SCGI-daemon with docker.cgi

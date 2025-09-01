@@ -1,20 +1,27 @@
 #! /bin/bash
 
-# This is a small shell script that is part of the prototype implementation the scgi-launch system.
+# This is a small shell script that is part of the prototype 
+# implementation of an scgi server.
 #
-# The scgi-launch system is designed to function as an SCGI daemon that, for each request, launches a CGI program.
-# By use of the scgi-launch program, you can effectively transform a CGI program into a SCGI server for that program.
+# The scgi-launch script is designed to function as an SCGI 
+# daemon that launches a CGI program for each request. By use
+# of the scgi-launch script, you can effectively transform a 
+# CGI program into a SCGI server specific for that program.
 #
-# In our implementation, we rely on existing programs, stitched together via a bash script, to reduce development time.
-#   It is would be straight forward to implement the scgi-launch program in C to improve performance.
-
+# In our implementation, we rely on existing programs, stitched 
+# together via this bash script, to reduce development time.
+# It is would be straight forward to implement the scgi-launch 
+# program in C to improve performance.
+#
 # This bash script relies on only three existing programs:
-#   - socket: manages the server-side TCP socket, and wires this communication to scgi2env-exec program's stdin/out
-#   - scgi2env-exec:  a C program, provided with this project, that performs the following operations:
+#   - socket: manages the server-side TCP socket, and 
+#             wires this communication to scgi2env-exec program's stdin/out
+#   - scgi2env-exec:  a C program provided in this repo, that:
 #       * reads a SCGI header from STDIN
 #       * creates an environment structure containing the CGI environment variables
 #       * "exec" the user program
-#   - "program":   a user supplied program that is passed to this script as it's only arguement.
+#   - "program": a user supplied program that is passed as
+#                the only argument to the scgi2env-exec script.
 
 
 # The steps associates with the 'scgi-launch' script is as follows:
@@ -38,11 +45,9 @@ SCGI2ENV_EXEC="$(readlink -f $(dirname $0)/scgi2env-exec)"
 [ -x ${CGI_PROGRAM} ]   || { echo "Error: ${CGI_PROGRAM} program is invalid" ; exit 1 ; }
 
 
-
-
 socket -B ${ADDR} -s ${PORT} -b -f -q -l -p "${SCGI2ENV_EXEC} ${CGI_PROGRAM}"
      # Arguments to the socket command:
-     #   -B: bind the socket to the ip of ${ADDR}
+     #   -B: bind the socket to the IP of ${ADDR}
      #   -s: a server-side socket is created on ${PORT}
      #   -b: background the process as a daemon
      #   -f: fork a child process for each connection

@@ -11,7 +11,7 @@
 
 # Emit response headers
 echo "Status: 200 Okay"
-echo "X-function: Emiting Environment variables"
+echo "X-function: Emitting Environment variables"
 echo "Content-type: text/plain"
 
 

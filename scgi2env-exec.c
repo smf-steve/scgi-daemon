@@ -1,8 +1,8 @@
 /**********************************************************************/
 /*  The scgi2env-exec programs:                                       */
 /*     - reads an SCGI request,                                       */
-/*     - prepares an environmment with CGI variables                  */
-/*     - exec-s the program provided as its only arguement.           */
+/*     - prepares an environment with CGI variables                   */
+/*     - exec-s the program provided as its only argument.            */
 /*                                                                    */
 /**********************************************************************/
 /* SCGI Protocol Definition:  http://python.ca/scgi/protocol.txt      */
@@ -17,6 +17,7 @@
 /*     - CONTENT_LENGTH must be the first header field                */
 /*     - A header field (name/value) SCGI/1 must exist                */
 /*     - There are no duplicate <header> "_name"s                     */
+/*                                                                    */
 /* Output Requirements:                                               */
 /*     - The response header must include a Status and Content-type:  */
 /*     * e.g.,                                                        */
@@ -24,9 +25,9 @@
 /*         Content-Type: text/plain                                   */
 /*                                                                    */
 /* Assumptions:                                                       */
-/*     - all necessary env variables are provided in the header       */
-/*     - The maximum number of env variables is <MAX_ENV_COUNT>       */
-/*     - the 'Status' response, if ommited, is assumed to be '200'    */
+/*     - all necessary ENV variables are provided in the header       */
+/*     - The maximum number of ENV variables is <MAX_ENV_COUNT>       */
+/*     - the 'Status' response, if omitted, is assumed to be '200'    */
 /*     - the 'program' called should provide the Status header        */
 /*     - the 'program' called should provide the Content-Type header  */
 /*     - the 'program' called is responsible for reading the <body>   */
@@ -56,23 +57,29 @@
 #define MAX_ENV_COUNT 100
 #define PROGRAM (argv[1])
 
-/* Values associated with the Header, provided for readiblity */
+/* Values associated with the Header, provided for readability   */
 #define CONTENT_LENGTH "CONTENT_LENGTH"
 #define SCGI_NAME "SCGI"
 #define SCGI_VALUE '1'
 
-/* A simple macro used to walk the pointer p thorugh the buffer, */
+/* A simple macro used to walk the pointer p through the buffer, */
 /* looking for the BYTE immediately following the next NULL char */
 #define next_start(p) { while ( *p != '\0' ) p++; p++; }
 
 /* A simple macro used to test for an error and then exit the    */
-/* program used to make the code more readabable                 */
+/* program used to make the code more readable                   */
 #define exit_error(b,v) if (b) exit(v); 
 
-/* A simple macro that transforms the null char before _value to */
+/* Given two consecutive null-terminated strings:                */
+/*    "<_name> \0 <_value> \0"                                   */
+/* Create a single string of the form:                           */
+/*    "<_name> = <_value> \0"                                    */
+/*                                                               */
+/* I.e., transform the '\0' before the value to a '='            */
 /* to an "=".   I.e., the string    "<_name> \0 <_value> \0"     */
-/*            is tranformed into    "<_name> = <_value> \0"      */
-#define append_env(n,v) (*(v-1) = '=', n)
+/*            is transformed into   "<_name> = <_value> \0"      */
+/* And then return the modified string.                          */
+#define append_env_value(_name,_value) (*(_vale-1) = '=', _name) 
 
 
 int main(int argc, char * argv[], char **envp) {
@@ -108,7 +115,7 @@ int main(int argc, char * argv[], char **envp) {
       retval = strcmp(_name, CONTENT_LENGTH);       exit_error((retval != 0), RETVAL_MISSING_CONTENT_LENGTH);
       // body_size = atoi(_value);   The body_size is not used.
 
-      new_env[env_count] = append_env(_name, _value);
+      new_env[env_count] = append_env_value(_name, _value);
       env_count ++;
       /* CONTENT_LENGTH <header> has been validated */
 
@@ -124,7 +131,7 @@ int main(int argc, char * argv[], char **envp) {
 	  scgi_version = _value[0] + _value[1];  
 	}	 
 
-	new_env[env_count] = append_env(_name, _value);
+	new_env[env_count] = append_env_value(_name, _value);
 	env_count ++;
 
       }
@@ -142,12 +149,12 @@ int main(int argc, char * argv[], char **envp) {
     
     /* Here we ASSUME that the called PROGRAM generates a valid response     */
     /* If we remove this assumption than the following steps should be taken */
-    /*     1. for a child process                                            */
+    /*     1. fork a child process                                            */
     /*     2. wire the child's stdin to the parents stdin                    */
-    /*     3. reaad the results of the child (return value and output)       */
-    /*     4. validate the assuptions, if not                                */
+    /*     3. read the results of the child (return value and output)       */
+    /*     4. validate the assumptions, if not                                */
     /*        a. emit the appropriate header values                          */
-    /*     5. write the childs output to stdout                              */
+    /*     5. write the child's output to stdout                              */
     
     execle(PROGRAM, PROGRAM, (char *) NULL, new_env);
 

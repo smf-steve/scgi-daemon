@@ -11,7 +11,7 @@
 # Basic CGI Response
 
 # Emit response headers
-echo "X-function: Emiting Environment variables"
+echo "X-function: Emitting Environment variables"
 echo "Content-type: text/plain"
 
 
