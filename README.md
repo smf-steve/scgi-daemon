@@ -22,7 +22,7 @@ This project was developed as part of a larger project to study the various ways
 * to increase the level of security by the use of containers.
 
 # Architecture
-![Architectural Diagram of the CGI Daemon](/images/architecture.pang)
+![Architectural Diagram of the CGI Daemon](/images/architecture.png)
 
 # Installation Methods:
 You can install this package either from source or as a docker container.  In both cases, you need to configure the web server to act as a proxy to your SCGI program.  Of course, you can talk directly to your SCGI daemon, but you would need to transmit a valid SCGI request using the wire protocol.
@@ -67,7 +67,7 @@ sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-da
 ### Note:
 * In the above installation instructions, we presume we are running a linux host with "host" network.
 * With a "bridge" network, you will need to do port mapping:  --host bridge -p {PORT}:{$PORT}
-* We need a better way to egress the CGI_PROGRAM into the Container
+* We need a better way to ingress the CGI_PROGRAM into the Container
 
 # Example
 * URL of the Example Program:  https://www.sandbox.csun.edu/~steve/scgi-bin/emit-env

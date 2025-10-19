@@ -122,17 +122,17 @@ int main(int argc, char * argv[], char **envp) {
 
       /* Process one or more <header> lines */
       while (p < (buffer + header_size)) {
-	_name  = p; next_start(p);
-	_value = p; next_start(p);
+        _name  = p; next_start(p);
+        _value = p; next_start(p);
 
-	/* Per the Protocol, check for the SCGI_NAME */
-	if (! strcmp(_name, SCGI_NAME)) {
-	  /* value[1] should be '\0'. Hence, adding it to _value[0] has no impact */
-	  scgi_version = _value[0] + _value[1];  
-	}	 
-
-	new_env[env_count] = append_env_value(_name, _value);
-	env_count ++;
+        /* Per the Protocol, check for the SCGI_NAME */
+        if (! strcmp(_name, SCGI_NAME)) {
+          /* value[1] should be '\0'. Hence, adding it to _value[0] has no impact */
+          scgi_version = _value[0] + _value[1];  
+        }  
+      
+        new_env[env_count] = append_env_value(_name, _value);
+        env_count ++;
 
       }
       new_env[env_count] = NULL;
@@ -152,7 +152,7 @@ int main(int argc, char * argv[], char **envp) {
     /*     1. fork a child process                                            */
     /*     2. wire the child's stdin to the parents stdin                    */
     /*     3. read the results of the child (return value and output)       */
-    /*     4. validate the assumptions, if not                                */
+    /*     4. validate the child process generates a valid response, if not                                */
     /*        a. emit the appropriate header values                          */
     /*     5. write the child's output to stdout                              */
     
