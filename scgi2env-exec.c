@@ -1,5 +1,5 @@
 /**********************************************************************/
-/*  The scgi2env-exec programs:                                       */
+/*  The scgi2env-exec programs:                                       */   /* scgi2env-exec <PROGRAM> */
 /*     - reads an SCGI request,                                       */
 /*     - prepares an environment with CGI variables                   */
 /*     - exec-s the program provided as its only argument.            */
@@ -7,19 +7,20 @@
 /**********************************************************************/
 /* SCGI Protocol Definition:  http://python.ca/scgi/protocol.txt      */
 /*                                                                    */
-/* Syntax:  P         ->  <h_size> ":" <header> "," <body>            */
-/*          <header>  ->  "CONTENT_LENGTH" '\0' <b_size>              */
-/*                         ( _name '\0' _value '\0' )+                */
+/* Syntax:  P         ->  <h_size> ":" <header> "," <body>            */ /* Can there be a whitespace around ":"  */
+/*          <header>  ->  "CONTENT_LENGTH" '\0' <b_size>              */ /* Should there be a '\0' after <b_size> */
+/*                         ( _name '\0' _value '\0' )+                */ /* Is this always true, 1 or more? */
+                                                                         /* spacing */
 /*          <h_size>   : the size in bytes for the <header>           */
 /*          <b_size>   : the size in bytes for the <body>             */
 /*                                                                    */
 /* Input Requirements:                                                */
 /*     - CONTENT_LENGTH must be the first header field                */
-/*     - A header field (name/value) SCGI/1 must exist                */
-/*     - There are no duplicate <header> "_name"s                     */
+/*     - A header field (name/value) SCGI/1 must exist                */ /* somewhere in the header */ /* reformat comment for clarity */
+/*     - There are no duplicate <header> "_name"s                     */ /* this is currently not tested for ? */
 /*                                                                    */
 /* Output Requirements:                                               */
-/*     - The response header must include a Status and Content-type:  */
+/*     - The response header must include a Status and Content-type:  */  /* requirement of the called 'program' */
 /*     * e.g.,                                                        */
 /*         Status: 200 okay                                           */
 /*         Content-Type: text/plain                                   */
@@ -27,8 +28,9 @@
 /* Assumptions:                                                       */
 /*     - all necessary ENV variables are provided in the header       */
 /*     - The maximum number of ENV variables is <MAX_ENV_COUNT>       */
-/*     - the 'Status' response, if omitted, is assumed to be '200'    */
-/*     - the 'program' called should provide the Status header        */
+/*     - the 'Status' response, if omitted, is assumed to be '200'    */  /* how is this inserted if not be the 'program' */
+                                                                          /* implementation assumption see below about fork */
+/*     - the 'program' called should provide the Status header        */  /* Is this a should or must */
 /*     - the 'program' called should provide the Content-Type header  */
 /*     - the 'program' called is responsible for reading the <body>   */
 /*                                                                    */
@@ -125,10 +127,10 @@ int main(int argc, char * argv[], char **envp) {
         _name  = p; next_start(p);
         _value = p; next_start(p);
 
-        /* Per the Protocol, check for the SCGI_NAME */
+        /* Per the Protocol, check for the SCGI_NAME */                               /* can optimize via a flag if set ? */
         if (! strcmp(_name, SCGI_NAME)) {
-          /* value[1] should be '\0'. Hence, adding it to _value[0] has no impact */
-          scgi_version = _value[0] + _value[1];  
+          /* value[1] should be '\0'. Hence, adding it to _value[0] has no impact */ /* at most two digits in protocol ? */
+          scgi_version = _value[0] + _value[1];                                      /* is this a concatenation ? */
         }  
       
         new_env[env_count] = append_env_value(_name, _value);
@@ -146,17 +148,18 @@ int main(int argc, char * argv[], char **envp) {
   /* PROCESS THE BODY */
   {
     /* Exec the appropriate program to process the <body> and generate the response */
-    
-    /* Here we ASSUME that the called PROGRAM generates a valid response     */
-    /* If we remove this assumption than the following steps should be taken */
-    /*     1. fork a child process                                            */
-    /*     2. wire the child's stdin to the parents stdin                    */
-    /*     3. read the results of the child (return value and output)       */
-    /*     4. validate the child process generates a valid response, if not                                */
-    /*        a. emit the appropriate header values                          */
-    /*     5. write the child's output to stdout                              */
-    
+
     execle(PROGRAM, PROGRAM, (char *) NULL, new_env);
+
+    /* Here we ASSUME that the called PROGRAM generates a valid response            */
+    /* If we remove this assumption than the following steps should be taken        */
+    /*   in lieu of the `execle` call.                                              */
+    /*     1. fork a child process                                                  */
+    /*     2. wire the child's stdin to the parents stdin                           */
+    /*     3. read the results of the child (return value and output)               */
+    /*     4. validate the child process generates a valid response, if not         */
+    /*        a. emit the appropriate header values                                 */
+    /*     5. write the child's output to stdout                                    */
 
     fprintf(stdout, "Status: 503 Service Unavailable\n");
     fprintf(stdout, "Content-type: text/plain\n");
