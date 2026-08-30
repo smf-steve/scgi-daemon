@@ -1,18 +1,19 @@
 /**********************************************************************/
-/*  The scgi2env-exec programs:                                       */   /* scgi2env-exec <PROGRAM> */
+/*  scgi2env-exec <PROGRAM>:                                          */
 /*     - reads an SCGI request,                                       */
 /*     - prepares an environment with CGI variables                   */
-/*     - exec-s the program provided as its only argument.            */
+/*     - exec-s the <PROGRAM> provided as its only argument.          */
 /*                                                                    */
 /**********************************************************************/
 /* SCGI Protocol Definition:  http://python.ca/scgi/protocol.txt      */
 /*                                                                    */
-/* Syntax:  P         ->  <h_size> ":" <header> "," <body>            */ /* Can there be a whitespace around ":"  */
-/*          <header>  ->  "CONTENT_LENGTH" '\0' <b_size>              */ /* Should there be a '\0' after <b_size> */
-/*                         ( _name '\0' _value '\0' )+                */ /* Is this always true, 1 or more? */
-                                                                         /* spacing */
-/*          <h_size>   : the size in bytes for the <header>           */
-/*          <b_size>   : the size in bytes for the <body>             */
+/* Syntax:                                                            */
+/*     P         ->    <h_size> ":" <header> "," <body>               */ /* Can there be a whitespace around ":"  */
+/*     <header>  ->    "CONTENT_LENGTH" '\0' <b_size>                 */ /* Should there be a '\0' after <b_size> */
+/*                   ( _name '\0' _value '\0' )+                      */ /* At least SCGI _name must be present   */
+/*                                                                    */
+/*     <h_size>   : the size in bytes for the <header>                */
+/*     <b_size>   : the size in bytes for the <body>                  */
 /*                                                                    */
 /* Input Requirements:                                                */
 /*     - CONTENT_LENGTH must be the first header field                */
@@ -72,17 +73,15 @@
 /* program used to make the code more readable                   */
 #define exit_error(b,v) if (b) exit(v); 
 
-/* Given two consecutive null-terminated strings:                */
-/*    "<_name> \0 <_value> \0"                                   */
-/* Create a single string of the form:                           */
-/*    "<_name> = <_value> \0"                                    */
+/* A macro to convert 2 consecutive null-terminate strings into  */
+/* a single string containing and env definition:                */  
+#define append_env_value(_name,_value) (*(_value-1) = '=', _name) 
+
+/* E.g.,                                                         */
+/*   Before:  "<_name> \0 <_value> \0"                           */
+/*   After:   "<_name> = <_value> \0"                            */
 /*                                                               */
 /* I.e., transform the '\0' before the value to a '='            */
-/* to an "=".   I.e., the string    "<_name> \0 <_value> \0"     */
-/*            is transformed into   "<_name> = <_value> \0"      */
-/* And then return the modified string.                          */
-#define append_env_value(_name,_value) (*(_vale-1) = '=', _name) 
-
 
 int main(int argc, char * argv[], char **envp) {
   int header_size = 0;
@@ -96,11 +95,22 @@ int main(int argc, char * argv[], char **envp) {
 
   /* Determine the size of the header, and place the header and the "," into the buffer      */
   /*    -- leaving just the body on stdin.                                                   */
-  retval = scanf("%d:", &header_size);              exit_error((retval != 1), RETVAL_PROTOCOL_ERROR);
-  buffer = malloc(sizeof(BYTE) * (header_size+1));  exit_error((buffer == NULL), RETVAL_OTHER);
-  retval = fread(buffer, 1, header_size+1, stdin);  exit_error((retval != header_size+1), RETVAL_OTHER);
-  retval = buffer[header_size];                     exit_error((retval != ','), RETVAL_PROTOCOL_ERROR);
 
+  {
+    /* Syntax:    P  ->    <h_size> ":" <header> "," <body>               */
+
+    /* Read "<h_size>:" */
+    retval = scanf("%d:", &header_size);              exit_error((retval != 1), RETVAL_PROTOCOL_ERROR);
+
+    /* Allocate space ..., and then read the <header> and the required "," */
+    buffer = malloc(sizeof(BYTE) * (header_size+1));  exit_error((buffer == NULL), RETVAL_OTHER);
+    retval = fread(buffer, 1, header_size+1, stdin);  exit_error((retval != header_size+1), RETVAL_OTHER);
+
+    /* validate the last character is the "," */
+    retval = buffer[header_size];                     exit_error((retval != ','), RETVAL_PROTOCOL_ERROR);
+
+    /* for saftey, should buffer have a '\0' positioned at the end */
+  }
 
   /* PROCESS THE HEADER and create the ENV */
   {
