@@ -96,8 +96,7 @@ int main(int argc, char * argv[], char **envp) {
   /* Determine the size of the header, and place the header and the "," into the buffer      */
   /*    -- leaving just the body on stdin.                                                   */
 
-  {
-    /* Syntax:    P  ->    <h_size> ":" <header> "," <body>               */
+  { /* Syntax:    P  ->    <h_size> ":" <header> "," <body>               */
 
     /* Read "<h_size>:" */
     retval = scanf("%d:", &header_size);              exit_error((retval != 1), RETVAL_PROTOCOL_ERROR);
@@ -110,7 +109,8 @@ int main(int argc, char * argv[], char **envp) {
     retval = buffer[header_size];                     exit_error((retval != ','), RETVAL_PROTOCOL_ERROR);
 
     /* for saftey, should buffer have a '\0' positioned at the end */
-  }
+    
+  } /* <body> is left on stdin */
 
   /* PROCESS THE HEADER and create the ENV */
   {
