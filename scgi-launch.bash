@@ -56,6 +56,14 @@ socket -B ${ADDR} -s ${PORT} -b -f -q -l -p "${SCGI2ENV_EXEC} ${CGI_PROGRAM}"
      #   -p: execute the supporting program: 'scgi2env-exec'
 
 
+# Notes:
+#  Alternative to using the "socket" program
+#
+#  nc -k -l ${PORT} ${ADDR} 
+#     -k   force nc to stay listening (equiv to looping)
+#     -l   listen for an incoming connection
 
+# mkfifo backpipe
+# nc -k -l 12345  0<backpipe | nc www.google.com 80 1>backpipe
 
 
