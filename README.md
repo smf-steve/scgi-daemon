@@ -1,7 +1,40 @@
 # Project Name: scgi-daemon
 
+# Quick Note
+
+This repository is under current refactoring.  This refactoring is being performed to achieve the following outcomes:
+
+  1. to provide four (4) implementations of an SCGI server
+     - scgi-launch model: 
+       * the original prototype implementation
+       * using command-line tools to stitch together a working model
+     - accept-fork:
+       - a`C` implementation using the standard accept-fork-exec model
+     - fork-accept-1:
+       - a`C` implementation flipping the order of execution to allow a single child process to `accept` the network connection.
+     - fork-accept-pool:
+       - a`C` implementation of a pool of children using the fork-accept model
+
+  1. to separate out the `netstring` code to create
+     - a`C` library containing functions to perform encodings/decodings
+     - a command-line program that is associated with these functions
+ 
+  1. to prepare for performance analysis
+
+Possible future work includes:
+
+  1. fcgi-daemon
+     - to ingress the [https://github.com/smf-steve/fcgi-daemon](fcgi-daemon) repository 
+     - to clean up said repository
+     - to perform performance analysis between fcgi and scgi
+
+  1. rust:
+     - to implement the scgi server in `rust`
+     - to perform performance analysis between the `C` and `rust` implementations
+
+
 # Quick Description:
-A prototype implementation of a SCGI server.  This project utilizes the 'socket' command to manage the server components, and a C program (scgi2env-exec) to read the SCGI wire protocol, to create a CGI environment, and to exec the desired CGI program.
+A prototype implementation of a SCGI server.  This project utilizes the `socket` command to manage the server components, and a C program (scgi2env-exec) to read the SCGI wire protocol, to create a CGI environment, and to exec the desired CGI program.
 
 ## Related Links:
 * socket: http://manpages.ubuntu.com/manpages/xenial/en/man1/socket.1.html
@@ -9,6 +42,12 @@ A prototype implementation of a SCGI server.  This project utilizes the 'socket'
   * https://en.wikipedia.org/wiki/Simple_Common_Gateway_Interface
   * http://python.ca/scgi/protocol.txt
 * Common Gateway Interface (CGI): https://en.wikipedia.org/wiki/Common_Gateway_Interface
+
+* Netstring: https://en.wikipedia.org/wiki/Netstring
+
+
+# Rework below
+
 
 # PURPOSE:
 *	To allow any CGI program to be invoked under the client-server model as opposed to the fork-exec model
@@ -64,6 +103,7 @@ sudo docker start ${SCGI_TAG}
 sudo docker cp ${CGI_PROGRAM} ${SCGI_TAG}:/scgi-daemon/cgi-program
 sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-daemon/cgi-program
 ```
+
 ### Note:
 * In the above installation instructions, we presume we are running a linux host with "host" network.
 * With a "bridge" network, you will need to do port mapping:  --host bridge -p {PORT}:{$PORT}
