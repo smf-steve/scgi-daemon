@@ -73,7 +73,7 @@ It was envisioned that each student would develop, maintain, and/or use an indep
      - to perform performance analysis between the `C` and `rust` implementations
 
    * fcgi-daemon:
-     - to ingress the [https://github.com/smf-steve/fcgi-daemon](fcgi-daemon) repository 
+     - to ingress the [fcgi-daemon](https://github.com/smf-steve/fcgi-daemon) repository 
      - to clean up said repository
      - to perform performance analysis between fcgi and scgi
 
