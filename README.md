@@ -1,40 +1,82 @@
 # Project Name: scgi-daemon
 
-# Quick Note
+## Quick Note: This repository is under current refactoring. 
 
-This repository is under current refactoring.  This refactoring is being performed to achieve the following outcomes:
+## Description (upon completion):
+This repository contains an implementation of a SCGI server designed to work with a pool of pre-forked child processes.  The purpose of the pre-forked processes is to reduce the (observable) time necessary to to execute a CGI program.  In total, having a dedicated SCGI server allows for the following benefits:
 
-  1. to provide four (4) implementations of an SCGI server
-     - scgi-launch model: 
-       * the original prototype implementation
-       * using command-line tools to stitch together a working model
-     - accept-fork:
-       - a`C` implementation using the standard accept-fork-exec model
-     - fork-accept-1:
-       - a`C` implementation flipping the order of execution to allow a single child process to `accept` the network connection.
-     - fork-accept-pool:
-       - a`C` implementation of a pool of children using the fork-accept model
+   1. The responsibility of execution CGI script can be offloaded from a web (HTTP) server.
+   1. The SCGI server can be located on a backend server, thus reduce load on the front-end web server.
+   1. the SCGI server can be located within a docker container, thus providing an additional layer of security
+   1. The SCGI has a pool of pre-forked worker, thus reducing the start-time associated with a SCGI server
 
-  1. to separate out the `netstring` code to create
-     - a`C` library containing functions to perform encodings/decodings
-     - a command-line program that is associated with these functions
- 
-  1. to prepare for performance analysis
+We also provide performance analysis on the four implementations to gain insight on ways to improve the performance of an SCGI server.  At the start of this project, we surmised that the "fork" operation to create child workers would be the predominate cost in bootstrapping a CGI process.
 
-Possible future work includes:
+The four implementation are designed to incrementally improve performance over each previous version by altering on facet of the final implementation.  In total, the four implementations include:
 
-  1. fcgi-daemon
+   1. A `command-line` utility implementation
+      - To use only command-line tools to build an SCGI server
+      - To reduce development time for small project
+      - To use the client-server model as opposed to the fork-exec model
+        * albeit the 'fork' operation is hidden within the "socket" utility
+
+   1. An implementation using the traditional `accept-fork`-exec model
+      - a SCGI request is received (the `accept`)
+      - a dedicated child process is then created (the `fork`)
+      - the child process then executes the underlying CGI program (the `exec`)
+
+   1. An implementation using the `fork-accept-1`-exec approach
+      - a single (`1`) child process is created at server startup time (the `fork`)
+      - this child process then accepts the next SCGI request (the `accept`)
+      - the child process executes the underlying CGI program (the `exec`)
+      - the parent process then created a single child process for the next SCGI request
+
+   1. The final implementation (`fork-accept-pool`) which follows the same model as the `fork-accept-1` model but with a pool of child workers
+      - a pool of child processes are created at server startup time
+      - each child process, in turn, executes an SCGI request
+      - the parent process, upon the completion of child process, replenishes the pool of workers.
+
+
+## Note:
+
+This project was developed as part of a larger project to study the various ways to generate dynamic content within a web environment. The overall goal of this study is to determine the best way:
+
+  * to provide maximum flexibility to fledgling developers as they develop various web applications
+  * to eliminate interdependence between these developers and the administrators of the web environment
+  * to increase the level of security by the use of containers.
+
+It was envisioned that each student would develop, maintain, and/or use an independent SCGI server for their work. Each of these students would be assigned a dedicated end-point for their SCGI server; that is to say, they would be assigned a port for the SCGI server. The assigned port would be associated with a docker container that they also maintained.
+
+
+### Current Activities:
+
+  * [ ] Flesh-out this README.md file on current and future work
+  * [ ] Refactor the prototype tool into a pure `command-line` implementation of an SCGI server
+    - [ ] moving then netstring decoding code to a separate command-line utility and C library
+    - [ ] remove reliance on `sgi2env.c`
+    - [ ] perform fd remapping via shell capabilities (as opposed to C's dup2 functions)
+  * [ ] Create a command-line tool to encode/decode `netstring`s, based upon a C library
+  * [ ] Implement accept-fork model 
+  * [ ] Implement fork-accept model
+  * [ ] Implement accept-fork-pool model
+  * [ ] Create testing procedures using [STH](https://github.com/smf-steve/sth) 
+  * [ ] Update the revised repository to work within a docker container  
+  * [ ] Create performance timing procedures
+
+
+### Potential Future Work:
+
+   * Determine the current applicability of the noted larger project. Obtaining the necessary computational resources with the desired/required flexibility for student use might be insurmountable.  At least it was a year after the start of the original prototype work.  This is why the work on this repository was put on hiatus.
+
+   * Rust:
+     - to implement the SCGI server in `rust`
+     - to perform performance analysis between the `C` and `rust` implementations
+
+   * fcgi-daemon:
      - to ingress the [https://github.com/smf-steve/fcgi-daemon](fcgi-daemon) repository 
      - to clean up said repository
      - to perform performance analysis between fcgi and scgi
 
-  1. rust:
-     - to implement the scgi server in `rust`
-     - to perform performance analysis between the `C` and `rust` implementations
-
-
-# Quick Description:
-A prototype implementation of a SCGI server.  This project utilizes the `socket` command to manage the server components, and a C program (scgi2env-exec) to read the SCGI wire protocol, to create a CGI environment, and to exec the desired CGI program.
 
 ## Related Links:
 * socket: http://manpages.ubuntu.com/manpages/xenial/en/man1/socket.1.html
@@ -42,28 +84,15 @@ A prototype implementation of a SCGI server.  This project utilizes the `socket`
   * https://en.wikipedia.org/wiki/Simple_Common_Gateway_Interface
   * http://python.ca/scgi/protocol.txt
 * Common Gateway Interface (CGI): https://en.wikipedia.org/wiki/Common_Gateway_Interface
-
 * Netstring: https://en.wikipedia.org/wiki/Netstring
 
 
-# Rework below
 
+# REWORK BELOW:
 
-# PURPOSE:
-*	To allow any CGI program to be invoked under the client-server model as opposed to the fork-exec model
-* To containerize the CGI program along with the scgi-daemon, to provide a layer of security
-* To execute the container either directly on a/the web-server or on a backend server
+---
 
-## Note:
-This project was developed as part of a larger project to study the various ways to generate dynamic content within a web environment. The overall goal of this study is to determine the best way:
-* to provide maximum flexibility to fledgling developers as they develop various web applications
-* to eliminate interdependence between these developers and the administrators of the web environment
-* to increase the level of security by the use of containers.
-
-# Architecture
-![Architectural Diagram of the CGI Daemon](/images/architecture.png)
-
-# Installation Methods:
+## Installation Methods:
 You can install this package either from source or as a docker container.  In both cases, you need to configure the web server to act as a proxy to your SCGI program.  Of course, you can talk directly to your SCGI daemon, but you would need to transmit a valid SCGI request using the wire protocol.
 
 For descriptive purposes, we assume that the web server will proxy the SCGI server at the following URL: `https://hostname.com/${URI_BASE}/${SCGI_NAME}`
@@ -121,21 +150,5 @@ sudo docker exec ${SCGI_TAG} /scgi-daemon/scgi-launch localhost ${PORT} /scgi-da
  PORT=4000
  CGI_PROGRAM=~steve/public_html/cgi-bin/emit-env.cgi 
  ```
-### Note:
-* The source code for the example $CGI_PROGRAM can be obtained from https://www.sandbox.csun.edu/~steve/cgi-bin/cat.cgi?emit-env.cgi.
-* A the hosting server for this example is ssh.sandbox.csun.edu.  This server is fronted by the server, www.sandbox.csun.edu, which serves as a reverse proxy.
-
-
-# Enhancements:
-* Merge the socket and scgi2env-exec into a single executable
-* Enhance the scgi-daemon to have a number worker threads/process to increase performance
-* Modify the process to all the first path component in the URI to identify the name of the CGI program
-* Retool the project to use [podman](http://docs.podman.io/en/latest/)
-* Update the Docker file to build the scgi2env-exec binary under a multistage approach.
-* Update the Docker file to build the an image layer for the CGI_PROGRAM
-
-# Performance Numbers:
-* Generate performance numbers comparing SCGI-daemon with docker.cgi
-
 
    
