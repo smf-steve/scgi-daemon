@@ -65,36 +65,36 @@ extern NETSTRING *netstring_start(size_t count, size_t size);
   // Intitialize the metadata
 
 
-extern void netstring_restart(NETSTRING *strings_p);
+extern void netstring_restart(NETSTRING *ns_p);
   // Resets the associated data for a netstring
   // while reusing the underlying allocated data
 
 
-extern void netstring_end(NETSTRING *strings_p);
+extern void netstring_end(NETSTRING *ns_p);
   // Finalizes data of a NETSTRING
   // Adds the preamble ( <size> ":" ) and epologue ( ",")
 
-extern void netstring_resume(NETSTRING *strings_p);
+extern void netstring_resume(NETSTRING *ns_p);
   // Effectively undoes the `netstring_end` operation
 
-extern void netstring_free(NETSTRING *strings_p);
+extern void netstring_free(NETSTRING *ns_p);
   // deallocates the internal NETSTRING data structure
 
 
-extern size_t netstring_append(NETSTRING *strings_p, char *str, size_t len);
+extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len);
   // Appends the 'str'ing of length 'len' to the NETSTRING
   // if 'len' is zero, the length of the string is computed
 
 
 
-extern void netstring_read(int fd, NETSTRING *strings_p);
-extern void netstring_fread(NETSTRING *strings_p, FILE *fp);
+extern void netstring_read(int fd, NETSTRING *ns_p);
+extern void netstring_fread(NETSTRING *ns_p, FILE *fp);
   // Reads a netstring from a File or Stream, respectively.
   // Updates the NETSTRING data structure
 
 
-extern void netstring_write(int fd, NETSTRING *strings_p);
-extern void netstring_fwrite(NETSTRING *strings_p, FILE *fp);
+extern void netstring_write(int fd, NETSTRING *ns_p);
+extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp);
   // Writes a netstring to a File or Stream, respectively.
 
 

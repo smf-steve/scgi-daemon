@@ -35,12 +35,7 @@ static const char * error_msg[] = {
 //   strings of a given unified length.
 // Additional space is added for the netstring's PREAMBLE and EPOLOGUE.
 static size_t buffer_size(size_t count, size_t str_size) {
-  // if either count or str_size is 0, the associated MAX is used.
-
   int value;
-
-  count    = array_size(count);
-  str_size = string_size(str_size);
 
   value    = NETSTRING_PREAMBLE_MAX;
   value   += count * str_size;
@@ -60,34 +55,37 @@ extern NETSTRING *netstring_start(size_t count, size_t str_size) {
   //    If either count or size is 0, uses the default value
 
   // Intitialize the metadata
-  NETSTRING *p        = (NETSTRING *) malloc(sizeof(NETSTRING));
+  NETSTRING *ns_p        = (NETSTRING *) malloc(sizeof(NETSTRING));
 
-  p-> buffer_asize   = buffer_size(count, str_size);
-  p-> buffer         = (char *) malloc(p-> buffer_asize);
+  count                 = array_size(count);
+  str_size              = string_size(str_size);
 
-  p-> strings        = (char **) malloc(sizeof(char *) * (count+1));
-  p-> strings_asize  = count;
+  ns_p-> buffer_asize   = buffer_size(count,str_size);
+  ns_p-> buffer         = (char *) malloc(ns_p-> buffer_asize);
 
-  netstring_restart(p);
-  return p;
+  ns_p-> strings        = (char **) malloc(sizeof(char *) * (count+1));
+  ns_p-> strings_asize  = count;
+
+  netstring_restart(ns_p);
+  return ns_p;
 }
 
 
-extern void netstring_restart(NETSTRING *p) {
+extern void netstring_restart(NETSTRING *ns_p) {
   // Reuses the metadata with the NETSTRING
   // while reusing the underlying allocated data
-  p-> netstring      = NULL;
-  p-> netstring_size = 0;
+  ns_p-> netstring      = NULL;
+  ns_p-> netstring_size = 0;
 
-  p-> strings[0]     = (p-> buffer) + NETSTRING_PREAMBLE_MAX;
-  p-> strings_count  = 0;
-  p-> strings_length = 0;
+  ns_p-> strings[0]     = (ns_p-> buffer) + NETSTRING_PREAMBLE_MAX;
+  ns_p-> strings_count  = 0;
+  ns_p-> strings_length = 0;
 
   return;
 }
 
 
-extern void netstring_end(NETSTRING *p) {
+extern void netstring_end(NETSTRING *ns_p) {
   // Finalizes data of a netstring
   // Adds the preamble ( <size> ":" ) and epologue ( ",")
   // Caps the arrays[] structure  (arrays[n] = NULL)
@@ -98,47 +96,47 @@ extern void netstring_end(NETSTRING *p) {
   char   *preamble_start;
 
   // Create and prepand the preamble
-  preamble_length = sprintf(preamble, "%zu:", p-> strings_length);
-  preamble_start = p-> strings[0] - preamble_length;
+  preamble_length = sprintf(preamble, "%zu:", ns_p-> strings_length);
+  preamble_start = ns_p-> strings[0] - preamble_length;
   memcpy(preamble_start, preamble, preamble_length);
 
   // Append the epologue
   {
-    char *temp = p-> strings[p-> strings_count];
+    char *temp = ns_p-> strings[ns_p-> strings_count];
 
     *temp = ',';
     *(temp + 1) = '\0';
   }
 
   // End the strings[] data structure
-  p-> strings[p-> strings_count] = NULL;  
+  ns_p-> strings[ns_p-> strings_count] = NULL;  
 
   // Mark the structure as fully defined by setting the netstring value
-  p-> netstring      = preamble_start;
-  p-> netstring_size = preamble_length + p->strings_length + 1;
+  ns_p-> netstring      = preamble_start;
+  ns_p-> netstring_size = preamble_length + ns_p-> strings_length + 1;
 
   return;
 }
 
-extern void netstring_resume(NETSTRING *p) {
+extern void netstring_resume(NETSTRING *ns_p) {
 
   // Resume location location of strings[] data structure
-  p-> strings[p-> strings_count] = p->strings[0] + p->strings_length + 1;
+  ns_p-> strings[ns_p-> strings_count] = ns_p-> strings[0] + ns_p-> strings_length + 1;
 
   // Mark the structure as not being fully defined by setting the netstring value
-  p-> netstring      = NULL;
-  p-> netstring_size = 0;
+ ns_p-> netstring      = NULL;
+ ns_p-> netstring_size = 0;
 }
 
 
-extern void netstring_free(NETSTRING *p) {
+extern void netstring_free(NETSTRING *ns_p) {
   // deallocates the internal NETSTRING data structure
-  free(p-> buffer);
-  free(p-> strings);
+  free(ns_p-> buffer);
+  free(ns_p-> strings);
 }
 
 
-extern size_t netstring_append(NETSTRING *p, char *str, size_t len) {
+extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
   // Appends the 'str'ing of length 'len' to the NETSTRING
   // if 'len' is zero, the length of the string is computed
 
@@ -148,33 +146,33 @@ extern size_t netstring_append(NETSTRING *p, char *str, size_t len) {
   if (str == NULL) { str = ""; }
   if (len == 0) { len = strlen(str); }
 
-  count = p->strings_count;              // Determine the location to place the string 
-  temp = p->strings[count];              // based upon working count
+  count = ns_p-> strings_count;              // Determine the location to place the string 
+  temp = ns_p-> strings[count];              // based upon working count
 
   strncpy(temp, str, len);               // Copy the string to the buffer
   temp += len;  *temp = '\0';            // Append the NULL separator
 
-  p->strings_length += len + 1;          // Update the total length
+  ns_p-> strings_length += len + 1;          // Update the total length
 
   count ++; temp++;                      // Update the working count and location
-  p->strings[count] = temp;                
-  p->strings_count  = count;
+  ns_p-> strings[count] = temp;                
+  ns_p-> strings_count  = count;
   
-  assert(temp < p-> buffer + p-> buffer_asize);
-  assert(p-> strings_count < p-> strings_asize);
+  assert(temp < ns_p-> buffer + ns_p-> buffer_asize);
+  assert(ns_p-> strings_count < ns_p-> strings_asize);
 
   return (len + 1);
 }
 
 // Writes a netstring to a File or Stream, respectively.
-extern void netstring_write(int fd, NETSTRING *p) {
+extern void netstring_write(int fd, NETSTRING *ns_p) {
 
-  write(fd, p-> netstring, p-> netstring_size);
+  write(fd,ns_p-> netstring,ns_p-> netstring_size);
   return;
 }
-extern void netstring_fwrite(NETSTRING *p, FILE *fp){
+extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 
-  fwrite(p-> netstring, 1, p-> netstring_size, fp);
+  fwrite(ns_p-> netstring, 1,ns_p-> netstring_size, fp);
   return;
 }
 
@@ -210,7 +208,7 @@ static int read_int(int fd, char *next) {
 #define return_error(b,v) if (b) { \
       fprintf(stderr, "%s\n", error_msg[v]); return; }
 
-extern void netstring_read(int fd, NETSTRING *p) {
+extern void netstring_read(int fd, NETSTRING *ns_p) {
   int  retval;
   char h_size;
   char colon  = '\0';
@@ -224,8 +222,8 @@ extern void netstring_read(int fd, NETSTRING *p) {
     h_size = read_int(fd, &colon);                    return_error(!(h_size >=0), ERROR_INVALID_SIZE);
                                                       return_error((colon  != ':'), ERROR_MISSING_COLON);
 
-    retval = read(fd, p->strings[0], h_size + 1);     return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
-    retval = *(p->strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
+    retval = read(fd, ns_p-> strings[0], h_size + 1);     return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
+    retval = *(ns_p-> strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
   } 
 
 
@@ -235,34 +233,33 @@ extern void netstring_read(int fd, NETSTRING *p) {
   /*   Walk the buffer to create an array of strings              */
   /*   Ensure the first _name is "CONTENT_LENGTH"                 */
   {
-    char *p_start, *p_end;    // Walker pointers 
+    char *start_p, *end_p;    // Walker pointers 
     int count = 0;             
 
-    p_start = p->strings[0];
-    p_end = p_start + h_size;
+    start_p = ns_p-> strings[0];
+    end_p   = start_p + h_size;
     
-    while (p_start < p_end) {
-      next_start(p_start);
+    while (start_p < end_p) {
+      next_start(start_p);
       count ++;
-      p->strings[count] = p_start;
+     ns_p-> strings[count] = start_p;
     }
 
-    assert( *p_end == ',');    // We should be right on the end of the netstring
-                               // we check the protocol error above
+    assert( *end_p == ',');    // We should have the final ',' per the netstring protocol
 
-    p->strings[count] = NULL;
-    p->strings_count = count;
+    ns_p-> strings[count] = NULL;
+    ns_p-> strings_count = count;
 
   }
 
-  p->strings_length = h_size;
-  netstring_end(p);
+  ns_p-> strings_length = h_size;
+  netstring_end(ns_p);
 
   return;
 }
 
 
-extern void netstring_fread(NETSTRING *p, FILE *fp);
+extern void netstring_fread(NETSTRING *ns_p, FILE *fp);
   // Reads a netstring from a File or Stream, respectively.
   // Updates the NETSTRING data structure
 
