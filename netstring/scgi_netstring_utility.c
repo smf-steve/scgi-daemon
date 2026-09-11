@@ -58,11 +58,11 @@ int main(int argc, char *argv[], char **envp) {
   switch (operation) {
     case NETSTRING_ENCODE:
       {
-        NETSTRING *netstring_p;
+        NETSTRING *ns_p;
         char      *str;
         size_t    length;
 
-        netstring_p = netstring_start(0,0);
+        ns_p = netstring_start(0,0);
 
         str = fgetln(stdin, &length);
         while (length != 0) {
@@ -71,38 +71,44 @@ int main(int argc, char *argv[], char **envp) {
              length --;
           } 
  
-          netstring_append(netstring_p, str, length);
+          netstring_append(ns_p, str, length);
           str = fgetln(stdin, &length);
         }
 
-        netstring_end(netstring_p);
-        netstring_fwrite(netstring_p, stdout);
-        netstring_free(netstring_p);
+        netstring_end(ns_p);
+        netstring_fwrite(ns_p, stdout);
+        netstring_free(ns_p);
         break;
       }
 
     case NETSTRING_DECODE:
       { 
-        NETSTRING *netstring_p;
-        char      **env_p;
+        NETSTRING *ns_p;
+        char      **strings;
+        int       ret_val;
 
-        netstring_p = netstring_allocate(0,0);
-        netstring_read(STDIN_FILENO, netstring_p);        // Using layer 2 for ead, but layer 3 above.. need to implement fread
-        netstring_end(netstring_p);
+        ns_p = netstring_allocate(0,0);
+        netstring_read(STDIN_FILENO, ns_p);        // Using layer 2 for ead, but layer 3 above.. need to implement fread
+        netstring_end(ns_p);
 
-        // env_p = netstring_strings(netstring_p);
-        env_p = netstring_p->strings;          // need an netstring access method
+        // env_p = netstring_strings(ns_p);
+        strings = ns_p->strings;          // need an netstring access method
+        //netstring_get_strings(ns_p);
 
 #ifdef SCGI_ENCODING
-        scgi_netstring_validate(netstring_p);  // ensures the netstring conforms to the scgi protocol
-        env_p = scgi_netstring2env(env_p);     // collapse (name, value) pairs into name=value strings 
-#endif
-
-        for(int count=0; env_p[count] != NULL; count++) {
-           fprintf(stdout, "%s\n", env_p[count]);
+        ret_val = scgi_netstring_validate(ns_p);  // ensures the netstring conforms to the scgi protocol
+        if (ret_val != 0) {
+          exit(ret_val);
         }
 
-        netstring_free(netstring_p);
+        strings = scgi_netstring2env(ns_p);     // collapse (name, value) pairs into name=value strings 
+#endif
+
+        for(int count=0; strings[count] != NULL; count++) {
+           fprintf(stdout, "%s\n", strings[count]);
+        }
+
+        netstring_free(ns_p);
         break;
 
       default:
