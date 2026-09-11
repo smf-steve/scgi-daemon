@@ -8,11 +8,16 @@ all:
 netstring: netstring.a netstring_utility.o
 	$(CC) -o $@ netstring_utility.o netstring.a
 
-scgi_netstring: netstring.a scgi_netstring.a netstring_utility.c
-	$(CC) -o $@ -DSCGI_ENCODING netstring_utility.c netstring.a scgi_netstring.a
+scgi_netstring: netstring.a scgi_netstring.a netstring_utility.o
+	$(CC) -o $@ -DSCGI_ENCODING netstring_utility.o netstring.a scgi_netstring.a
+
+netstring_utility.o: netstring_utility.c
 
 
 netstring.a: netstring.o
+	$(AR) -rcs $@ $<
+
+scgi_netstring.a: scgi_netstring.o
 	$(AR) -rcs $@ $<
 
 netstring.c: netstring.h
