@@ -19,7 +19,6 @@
    $ scgi_netstring [-d | --decode]  < netstring > env_file
    ```
 
-
 ## Netstring Description
 
 ## SCGI Protocol Description
@@ -39,6 +38,13 @@
 
 ## Command Line Examples
 
+
+
+## To Do:
+  - flesh out command line arguements  
+  - establish STH test cases for testing    
+  - integrate into the `scgi-launch` system 
+    
 
 
 ## See Also
