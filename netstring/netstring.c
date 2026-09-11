@@ -213,25 +213,20 @@ extern void netstring_read(int fd, NETSTRING *ns_p) {
   int h_size;
   char colon  = '\0';
 
-  /* Syntax:    P ->    <h_size> ":" <header> "," <body>         */
+  /* Syntax:    P ->    <h_size> ":" <header> "," <body>          */
   /*                                                              */
   /*   Read the <h_size> and the ":".                             */
   /*   Place the header and the "," into the buffer               */
   /*   Leave the body on stdin.                                   */
   { 
-    h_size = read_int(fd, &colon);                    return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-                                                      return_error((colon  != ':'), ERROR_MISSING_COLON);
+    h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
+                                                          return_error((colon  != ':'), ERROR_MISSING_COLON);
 
     retval = read(fd, ns_p-> strings[0], h_size + 1);     return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
     retval = *(ns_p-> strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
   } 
 
-
-  /* Syntax:    <header> ->  "CONTENT_LENGTH" '\0' <_value> '\0' */
-  /*                          ( _name '\0' _value '\0' )+         */
-  /*                                                              */
   /*   Walk the buffer to create an array of strings              */
-  /*   Ensure the first _name is "CONTENT_LENGTH"                 */
   {
     char *start_p, *end_p;    // Walker pointers 
     int count = 0;             

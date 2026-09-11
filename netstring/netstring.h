@@ -6,11 +6,6 @@
 #include <string.h>
 #include <assert.h>
 
-//Add asserts for *_asize 
-//
-//(* blah)
-//or 
-//*( blah)  <--
 
 #ifndef LINE_MAX
 #  define LINE_MAX (1024)
