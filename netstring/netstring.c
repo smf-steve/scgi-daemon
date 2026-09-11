@@ -210,7 +210,7 @@ static int read_int(int fd, char *next) {
 
 extern void netstring_read(int fd, NETSTRING *ns_p) {
   int  retval;
-  char h_size;
+  int h_size;
   char colon  = '\0';
 
   /* Syntax:    P ->    <h_size> ":" <header> "," <body>         */
@@ -244,16 +244,11 @@ extern void netstring_read(int fd, NETSTRING *ns_p) {
       count ++;
      ns_p-> strings[count] = start_p;
     }
-
-    assert( *end_p == ',');    // We should have the final ',' per the netstring protocol
-
-    ns_p-> strings[count] = NULL;
     ns_p-> strings_count = count;
 
+    assert( *end_p == ',');    // We should have the final ',' per the netstring protocol
   }
-
   ns_p-> strings_length = h_size;
-  netstring_end(ns_p);
 
   return;
 }

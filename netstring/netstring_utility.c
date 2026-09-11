@@ -18,11 +18,6 @@
 /*   - sufficient implementation to debug portions of the      */
 /*     netstring implementating (contained within netstring.c) */
 /*                                                             */
-/* To Do:                                                      */
-/*   - flesh out command line arguements                       */
-/*   - establish STH test cases for testing                    */
-/*   - integrate into the `scgi-launch` system                 */
-/*                                                             */
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -51,12 +46,14 @@ int main(int argc, char *argv[], char **envp) {
   int operation = NETSTRING_ENCODE;
 
   if (argc > 1) {
-     operation = strcmp(argv[1], "-e")?         NETSTRING_ENCODE
-               : strcmp(argv[1], "--encode")?   NETSTRING_ENCODE
-               : strcmp(argv[1], "-d")?         NETSTRING_DECODE
-               : strcmp(argv[1], "--decode")?   NETSTRING_DECODE
-               : NETSTRING_ERROR;
-  }
+    if (strcmp(argv[1], "-e") == 0 ) {
+       operation = NETSTRING_ENCODE;
+     } else if (strcmp(argv[1], "-d") == 0 ) {
+       operation = NETSTRING_DECODE;
+     } else {
+       operation = NETSTRING_ERROR;
+     }
+   }
   
   switch (operation) {
     case NETSTRING_ENCODE:
