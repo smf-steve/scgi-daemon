@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "netstring.h"
 #include "scgi_netstring.h"
 
 /* File: scgi_netstrings.c                                   */
@@ -82,19 +81,19 @@
 #define ERROR_PROTOCOL_ERROR (1)
 #define ERROR_MISSING_CONTENT_LENGTH (2)
 #define ERROR_EMPTY_CONTENT_LENGTH (3)
-#define ERROR_INVALID_SCGI_VALUE (4)
+#define ERROR_INVALID_SCGI_VERSION (4)
 #define ERROR_DUPLICATE_ENVS (5)
 #define ERROR_TOO_MANY_ENVS (6)
 #define ERROR_OTHER (7)
 
 static const char * error_msg[] = {
   "SCGI Error: SUCCESS (0)",
-  "SCGI Error: PROTOCOL_ERROR (1)",
-  "SCGI Error: MISSING_CONTENT_LENGTH (2)",
-  "SCGI Error: EMPTY_CONTENT_LENGTH (3)",
-  "SCGI Error: INVALID_SCGI_VALUE (4)",
+  "SCGI Error: PROTOCOL ERROR (1)",
+  "SCGI Error: MISSING CONTENT_LENGTH (2)",
+  "SCGI Error: EMPTY CONTENT_LENGTH (3)",
+  "SCGI Error: INVALID SCGI VERSION (4)",
   "SCGI Error: DUPLICATE ENVS (5)",
-  "SCGI Error: TOO_MANY_ENVS (6)",
+  "SCGI Error: TOO MANY ENVS (6)",
   "SCGI Error: OTHER (7)"
 };
 
@@ -108,6 +107,7 @@ static const char * error_msg[] = {
 
                        
 int scgi_netstring_validate(NETSTRING *ns_p) {
+  //  Ensure there is at least 4 strings
   //  Ensure the array has an even number of strings             
   //  Ensure the first _name is "CONTENT_LENGTH"                 
   //  Ensure the first _value is non-empty                       
@@ -118,7 +118,7 @@ int scgi_netstring_validate(NETSTRING *ns_p) {
   char **strings  =  ns_p->strings;
   int  count      =  ns_p->strings_count;
 
-  return_error( (count >= 3),     ERROR_PROTOCOL_ERROR);
+  return_error( (count < 4),     ERROR_PROTOCOL_ERROR);
   return_error( (count % 2 != 0), ERROR_PROTOCOL_ERROR);
 
   return_error((strcmp(strings[0], "CONTENT_LENGTH") !=0),
@@ -136,13 +136,15 @@ int scgi_netstring_validate(NETSTRING *ns_p) {
       break;
     }
   }
+  return_error((scgi_version != SCGI_VALUE), ERROR_INVALID_SCGI_VERSION);
 
+  
   // Technically, the SCGI protocol states that  
   // there should be no duplicate names.
   // In this implementation, we do not validate  
   // this requirement.                           
 
-  return_error((scgi_version != SCGI_VALUE), ERROR_INVALID_SCGI_VALUE);
+
   return ERROR_SUCCESS;
 }
 
@@ -170,7 +172,7 @@ char ** scgi_netstring2env(NETSTRING *ns_p) {
   }
   {
     count = count / 2;
-    for(int i=1; i < count;) {
+    for(int i=1; i < count; i++) {
        strings[i] = strings[i*2];
     }
     strings[count] = NULL;
