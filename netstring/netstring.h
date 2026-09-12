@@ -2,9 +2,75 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+typedef struct _NETSTRING {
+  char   *netstring;          // NULL until fully defined
+  size_t netstring_size;      // Zero until fully defined
+  size_t strings_length;      // Total length of strings within the netstring
+  //
+  size_t strings_count;       // Number of strings within th netstring
+  //
+  char   *buffer;             // The `buffer` that contains the netstring
+  size_t buffer_asize;        // Allocated size of the buffer
+  //
+  char   **strings;           // A vector of pointers to the individual 
+                              // strings within the netstring
+  size_t strings_asize;       // Allocated size of strings[]
+  //
+} NETSTRING;
+
+
+// Example of a fully defined netstring containing three strings: "hello", " ", "there"
+//
+// netstring = < '1' '4' ':' 'h' 'e' 'l' 'l' 'o' '\0' ' ' '\0' 't' 'h' 'e' 'r' 'e' '\0' ','>
+// netstring_size   =  18 (14 + 4)
+//    preamble : "13:"
+//    prologue : ","
+// strings_length   =  14
+// string_count     =   3
+// strings_array[0] =  "hello"
+// strings_array[1] =  " "
+// strings_array[2] =  "there"
+// strings_array[3] =  NULL
+
+
+// General order of operations associated with netstrings
+//
+// Example 1:  Building and Sending a netstring
+//
+//   netstring_start()
+//   do {
+//     netstring_append()
+//   } while ()
+//   netstring_append()
+//   netstring_end()
+//   // Oops! Not quite done building the netstring
+//   netstring_resume()
+//   do {
+//     netstring_append()
+//   } while ()
+//   netstring_end()
+// netstring_[f]write() 
+// netstring_free()
+//
+
+// Example 2:  Receiving a netstring
+//   netstring_allocate()
+//   netstring_[f]read()
+//   netstring_free()
+
+// Example 3: Receiving and then appending to a netstring
+//   netstring_allocate()
+//   netstring_[f]read()
+//   netstring_resume()
+//   do
+//     netstring_append()
+//   while ()
+//   netstring_end()
 
 
 #ifndef LINE_MAX
@@ -23,33 +89,6 @@
 #  define NETSTRING_PREAMBLE_MAX (11)
 #endif
  
-// Example of a fully defined netstring containing three strings: "hello", " ", "there"
-// netstring = < '1' '4' ':' 'h' 'e' 'l' 'l' 'o' '\0' ' ' '\0' 't' 'h' 'e' 'r' 'e' '\0' ','>
-// netstring_size   =  18 (14 + 4)
-//    preamble : "13:"
-//    prologue : ","
-// strings_length   =  14
-// string_count     =   3
-// strings_array[0] =  "hello"
-// strings_array[1] =  " "
-// strings_array[2] =  "there"
-// strings_array[3] =  NULL
-
-typedef struct _NETSTRING {
-  char   *netstring;          // NULL until fully defined
-  size_t netstring_size;      // Zero until fully defined
-  size_t strings_length;      // Total length of strings within the netstring
-                              // Also the size in the netstring preamble
-  size_t strings_count;       // Number of strings within the netstring
-  //
-  char   *buffer;             // The `buffer` that contains the netstring
-  size_t buffer_asize;        // Allocated size of the buffer
-  //
-  char   **strings;           // A vector of pointers to the individual strings
-  size_t strings_asize;       // Allocated size of strings[]
-  //
-} NETSTRING;
-
 
 
 #define netstring_allocate(count, size)  netstring_start(count, size)
@@ -69,8 +108,10 @@ extern void netstring_end(NETSTRING *ns_p);
   // Finalizes data of a NETSTRING
   // Adds the preamble ( <size> ":" ) and epologue ( ",")
 
+
 extern void netstring_resume(NETSTRING *ns_p);
   // Effectively undoes the `netstring_end` operation
+
 
 extern void netstring_free(NETSTRING *ns_p);
   // deallocates the internal NETSTRING data structure
@@ -79,7 +120,6 @@ extern void netstring_free(NETSTRING *ns_p);
 extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len);
   // Appends the 'str'ing of length 'len' to the NETSTRING
   // if 'len' is zero, the length of the string is computed
-
 
 
 extern void netstring_read(int fd, NETSTRING *ns_p);
@@ -92,38 +132,5 @@ extern void netstring_write(int fd, NETSTRING *ns_p);
 extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp);
   // Writes a netstring to a File or Stream, respectively.
 
-
-// General order of operations:
-//
-// Example 1:  Building and Sending a netstring
-//   netstring_start();
-//   do 
-//     netstring_append();
-//   while ();
-//   netstring_append();
-//   netstring_end();
-//   // Oops! Not quite done building the netstring
-//   netstring_resume()
-//   do 
-//     netstring_append();
-//   while ();
-//   netstring_end()
-// netstring_write()
-// netstring_free()
-//
-
-// Example 2:  Receiving a netstring
-//   netstring_allocate()
-//   netstring_read()
-//   netstring_free()
-
-// Example 3: Receiving and then appending to a netstring
-//   netstring_allocate()
-//   netstring_read()
-//   netstring_resume()
-//   do
-//     netstring_append()
-//   while ();
-//   netstring_end()
 
 
