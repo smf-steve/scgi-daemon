@@ -3,9 +3,9 @@
 /* Purpose:                                                    */
 /*   - To create a command line utility that facilates         */
 /*     the encoding and decoding of a netstring.               */
-/*   - To utilize said tool to perform system testing.         */
 /*   - Doubles as the 'scgi_netstring' utility when            */
-/*     when compiled with `-DSCGI_ENCODING                     */
+/*     when compiled with `-DSCGI_ENCODING`                    */
+/*   - To utilize said tool to perform system testing.         */
 /*                                                             */
 /* Usage:                                                      */
 /*   netstring [-e | --encode]  < env_file  > netstring        */
@@ -14,21 +14,9 @@
 /*   scgi_ netstring [-e | --encode]  < env_file  > netstring  */
 /*   scgi_ netstring [-d | --decode]  < netstring > env_file   */
 /*                                                             */
-/* Status:                                                     */
-/*   - sufficient implementation to debug portions of the      */
-/*     netstring implementating (contained within netstring.c) */
-/*                                                             */
-
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
-#define TRUE  (0)
-#define FALSE (!TRUE)
+/* Updates to perform:                                         */
+/*   -1 flag to use a single C-string without a trailing '\0'     */
+/*   -s, --stream  flag to use streams for IO                  */
 
 #ifndef SCGI_ENCODING
 #  include "netstring.h"
@@ -36,14 +24,23 @@
 #  include "scgi_netstring.h"
 #endif
 
+#define TRUE  (0)
+#define FALSE (!TRUE)
+
 #define NETSTRING_ENCODE (0)
 #define NETSTRING_DECODE (1)
-#define NETSTRING_ERROR (3)
+#define NETSTRING_ERROR  (3)
+
+#define NETSTRING_USE_FDS     (0)
+#define NETSTRING_USE_STREAMS (1)
+// By default program uses file descriptors
 
 
 int main(int argc, char *argv[], char **envp) {
 
-  int operation = NETSTRING_ENCODE;
+  // DEFAULT operations of the program
+  int operation    = NETSTRING_ENCODE;
+  int io_mechanism = NETSTRING_USE_STREAMS;
 
   if (argc > 1) {
     if (strcmp(argv[1], "-e") == 0 ) {
@@ -76,7 +73,13 @@ int main(int argc, char *argv[], char **envp) {
         }
 
         netstring_end(ns_p);
-        netstring_fwrite(ns_p, stdout);
+
+        if (io_mechanism == NETSTRING_USE_STREAMS) {
+          netstring_fwrite(ns_p, stdout); // Using layer 3 for I/O
+        } else {
+          netstring_write(STDOUT_FILENO, ns_p);  // Using layer 2 for I/O
+        }
+
         netstring_free(ns_p);
         break;
       }
@@ -88,7 +91,12 @@ int main(int argc, char *argv[], char **envp) {
         int       ret_val;
 
         ns_p = netstring_allocate(0,0);
-        netstring_read(STDIN_FILENO, ns_p);        // Using layer 2 for ead, but layer 3 above.. need to implement fread
+
+        if (io_mechanism == NETSTRING_USE_STREAMS) {
+          netstring_fread(ns_p, stdin);        // Using layer 3 for I/O
+        } else {
+          netstring_read(STDIN_FILENO, ns_p);  // Using layer 2 for I/O
+        }
         netstring_end(ns_p);
 
         // env_p = netstring_strings(ns_p);
