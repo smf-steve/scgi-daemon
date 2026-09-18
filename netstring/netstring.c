@@ -35,7 +35,7 @@ static int netstring_max_strings = NETSTRING_MAX_STRINGS_DEFAULT;
 
 #define string_size(size)    ( ((size) == 0)?  netstring_max_length : (size)  )
 #define array_size(count)    ( ((count) == 0)? netstring_max_strings : (count) )
-#define buffer_size(size)    ( NETSTRING_PREAMBLE_MAX + size + NETSRING_EPILOGUE_MAX )
+#define buffer_size(size)    ( NETSTRING_PREAMBLE_MAX + size + NETSTRING_EPILOGUE_MAX )
 
 
 
@@ -169,7 +169,7 @@ extern void netstring_write(int fd, NETSTRING *ns_p) {
 }
 extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 
-  fwrite(ns_p-> netstring, 1,ns_p-> netstring_size, fp);
+  fwrite(ns_p-> netstring, 1, ns_p-> netstring_size, fp);
   return;
 }
 
@@ -225,7 +225,7 @@ static void build_strings_array(NETSTRING *ns_p, int h_size) {
 }
 
 
-static int fread_int(FILE *fp, char *next) {
+static int fread_int(char *next, FILE *fp) {
     // reads from the file descriptor (fd)
     // - a number 
     // - the next char
@@ -287,7 +287,7 @@ extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
     h_size = fread_int(&colon, fp);                       return_error(!(h_size >=0), ERROR_INVALID_SIZE);
                                                           return_error((colon  != ':'), ERROR_MISSING_COLON);
 
-    retval = fread(ns_p-> strings[0], h_size + 1, 1, fp); return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
+    retval = fread(ns_p-> strings[0], 1, h_size + 1, fp); return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
     retval = *(ns_p-> strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
   } 
 
