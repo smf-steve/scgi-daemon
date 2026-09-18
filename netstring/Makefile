@@ -1,8 +1,10 @@
 TARGETS=netstring scgi_netstring netstring.a
 CFLAGS=-g
 
-all: 
-	echo $(TARGETS)
+all: $(TARGETS)
+	./netstring    <cgi_env         >encoded_cgi_env
+	./netstring -d <encoded_cgi_env >decoded_cgi_env
+	diff --brief cgi_env decoded_cgi_env
 
 # unable to link via the command: cc -o netstring netstring_utility.o -L. -lnetstring
 netstring: netstring.a netstring_utility.o
