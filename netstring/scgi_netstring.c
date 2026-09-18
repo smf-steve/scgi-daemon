@@ -74,7 +74,7 @@
 #define CGI_NAME  "GATEWAY_INTERFACE"
 #define CGI_VALUE "1.1"
 
-#define MAX_ENV_COUNT (NETSTRING_ARRAY_MAX/2)
+#define MAX_ENV_COUNT ( NETSTRING_MAX_STRINGS_DEFAULT / 2 )
 
 // Error Values and Associated Error Messages                                                      
 #define ERROR_SUCCESS (0)
