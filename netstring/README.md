@@ -41,9 +41,8 @@
 
 
 ## To Do:
-  - work on scgi_ version
   - test:  _resume, _restart, _fread, _write
-  - flesh out command line arguements  
+  - flesh out command line arguments  
     * consider -pure option where there is no '\0' at the end
       -- when performing a read, insert an extra '\0'
       -- when perform a write, remove the last '\0'
