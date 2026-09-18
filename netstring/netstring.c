@@ -22,22 +22,20 @@ static const char * error_msg[] = {
 };
 
 
-#define  array_size(count)    ( ((count) == 0)?  NETSTRING_ARRAY_MAX : (count) )
-#define  string_size(size)    ( ((size) == 0)? NETSTRING_CSTRING_MAX : (size)  )
 
-static size_t buffer_size(size_t count, size_t str_size) {
-  // Calculate the buffer_size need to store a netstring in total.
-  // This calculation is based upon the anticipated number of 
-  //   strings of a given unified length.
-  // Additional space is added for the netstring's PREAMBLE and EPOLOGUE.
-  int value;
+static int netstring_min_length  = NETSTRING_MIN_LENGTH_DEFAULT;
+static int netstring_max_length  = NETSTRING_MAX_LENGTH_DEFAULT;
+static int netstring_max_strings = NETSTRING_MAX_STRINGS_DEFAULT;
 
-  value    = NETSTRING_PREAMBLE_MAX;
-  value   += count * str_size;
-  value   += NETSTRING_EPILOGUE_MAX; 
 
-  return value;
-}
+// if cli value, then update the above values
+// if env value, then update these values
+
+
+
+#define string_size(size)    ( ((size) == 0)?  netstring_max_length : (size)  )
+#define array_size(count)    ( ((count) == 0)? netstring_max_strings : (count) )
+#define buffer_size(size)    ( NETSTRING_PREAMBLE_MAX + size + NETSRING_EPILOGUE_MAX )
 
 
 
@@ -51,7 +49,7 @@ extern NETSTRING *netstring_start(size_t count, size_t str_size) {
   count                 = array_size(count);
   str_size              = string_size(str_size);
 
-  ns_p-> buffer_asize   = buffer_size(count,str_size);
+  ns_p-> buffer_asize   = buffer_size(str_size);
   ns_p-> buffer         = (char *) malloc(ns_p-> buffer_asize);
 
   ns_p-> strings        = (char **) malloc(sizeof(char *) * (count+1));

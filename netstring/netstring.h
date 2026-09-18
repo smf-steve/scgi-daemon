@@ -73,28 +73,29 @@ typedef struct _NETSTRING {
 //   netstring_end()
 
 
-#ifndef LINE_MAX
-#  define LINE_MAX (1024)
+
+
+#define NETSTRING_EPILOGUE_MAX (1)
+#define NETSTRING_PREAMBLE_MAX (11)
+
+
+#ifndef NETSTRING_MIN_LENGTH_DEFAULT
+#  define NETSTRING_MIN_LENGTH_DEFAULT (0)
 #endif
-#ifndef NETSTRING_CSTRING_MAX
-#  define NETSTRING_CSTRING_MAX (LINE_MAX)
+#ifndef NETSTRING_MAX_LENGTH_DEFAULT
+#  define NETSTRING_MAX_LENGTH_DEFAULT (0xFFFF)  // 65,535
 #endif
-#ifndef NETSTRING_ARRAY_MAX
-#  define NETSTRING_ARRAY_MAX (100)
+#ifndef NETSTRING_MAX_STRINGS_DEFAULT
+#  define NETSTRING_MAX_STRINGS_DEFAULT (255)
 #endif
-#ifndef NETSTRING_EPILOGUE_MAX
-#  define NETSTRING_EPILOGUE_MAX (1)
-#endif
-#ifndef NETSTRING_PREAMBLE_MAX
-#  define NETSTRING_PREAMBLE_MAX (11)
-#endif
- 
+
+#define NETSTRING_MIN_READ_BUFFER (3)
 
 
 #define netstring_allocate(count, size)  netstring_start(count, size)
-extern NETSTRING *netstring_start(size_t count, size_t size);  
+extern NETSTRING *netstring_start(size_t count, size_t str_size);  
   // Allocates space for a NETSTRING data structure
-  // for 'count' strings of total size of 'string_size'
+  // for 'count' strings of total size of 'str_size'
   // If either count or size is 0, uses the default value
   // Intitialize the metadata
 
