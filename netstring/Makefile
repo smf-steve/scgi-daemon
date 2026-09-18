@@ -17,7 +17,7 @@ netstring_utility.o: netstring_utility.c
 netstring.a: netstring.o
 	$(AR) -rcs $@ $<
 
-scgi_netstring.a: scgi_netstring.o
+scgi_netstring.a: scgi_netstring.o netstring.o
 	$(AR) -rcs $@ $<
 
 netstring.c: netstring.h
