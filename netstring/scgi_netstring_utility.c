@@ -1,22 +1,56 @@
-/* File: netstring_utility.c                                   */
-/*                                                             */
-/* Purpose:                                                    */
-/*   - To create a command line utility that facilates         */
-/*     the encoding and decoding of a netstring.               */
-/*   - Doubles as the 'scgi_netstring' utility when            */
-/*     when compiled with `-DSCGI_ENCODING`                    */
-/*   - To utilize said tool to perform system testing.         */
-/*                                                             */
-/* Usage:                                                      */
-/*   netstring [-e | --encode]  < env_file  > netstring        */
-/*   netstring [-d | --decode]  < netstring > env_file         */
-/*                                                             */
-/*   scgi_ netstring [-e | --encode]  < env_file  > netstring  */
-/*   scgi_ netstring [-d | --decode]  < netstring > env_file   */
-/*                                                             */
-/* Updates to perform:                                         */
-/*   -1 flag to use a single C-string without a trailing '\0'     */
-/*   -s, --stream  flag to use streams for IO                  */
+/*****************************************************************/
+/* File: netstring_utility.c                                     */
+/*                                                               */
+/* Purpose:                                                      */
+/*   - To create a command line utility that facilates           */
+/*     the encoding and decoding of a netstring.                 */
+/*   - Doubles as the 'scgi_netstring' utility when              */
+/*     when compiled with `-DSCGI_ENCODING`                      */
+/*   - To utilize said tool to perform system testing.           */
+/*                                                               */
+/* Usage:                                                        */
+/*   netstring [-e] [options] < env_file  > netstring            */
+/*   netstring [-d] [options] < netstring > env_file             */
+/*                                                               */
+/*   scgi_netstring [-e] [options]  < env_file  > netstring      */
+/*   scgi_netstring [-d] [options]  < netstring > env_file       */
+/*                                                               */
+/* Options:                                                      */
+/*    -e, --encode    : encode a sequence of text strings ('\n'  */
+/*                      terminated) into a netstring. DEFAULT    */
+/*                                                               */
+/*    -d, --decode    : decode a netstring into a sequence of    */
+/*                      text strings ('\n' terminated)           */
+/*                                                               */
+/*    --min-length=n  : set the mininum length of the sequence   */
+/*                      of text strings.                         */
+/*                      (default: --min-length=NS_MIN_LENGTH     */
+/*                                                               */
+/*    --max-length=n  : set the maximum length of the sequence   */
+/*                      of text strings.                         */
+/*                      (default value: see below)               */
+/*                                                               */
+/*    --max-strings=n : set the maxium number of text strings    */
+/*                      encoded/decode                           */
+/*                      (default value: see below)               */
+/*                                                               */
+/*    --use-file      : use file descriptors (int fd) for I/O    */
+/*                      DEFAULT                                  */
+/*                                                               */
+/*    --use-stream    : use streams (FILE *fp) for I/O           */
+/*                                                               */
+/* Environment Variables:                                        */
+/*    In liu of the above command-line options, environment      */
+/*    variables can be defined to achieve the same effect. If    */
+/*    hese variablers are not defined, the default value are:    */  
+/*                                                               */
+/*    NETSTRING_MIN_LENGTH  : 0                                  */
+/*    NETSTRING_MAX_LENGTH  : 65,535  (0xFFFF)                   */
+/*    NETSTRING_MAX_STRINGS : 255                                */
+/*    NETSTRING_USE_FILES   : defined                            */
+/*    NETSTRING_USE_STREAMS : undefined (overrides USE_FILES)    */
+/*                                                               */
+/*****************************************************************/
 
 #ifndef SCGI_ENCODING
 #  include "netstring.h"
