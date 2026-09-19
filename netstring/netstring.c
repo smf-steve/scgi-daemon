@@ -21,6 +21,13 @@ static const char * error_msg[] = {
 
 };
 
+#define TRUE (0)
+#define FALSE (!(TRUE))
+
+#define INIT_READ_BRUTE    (0)
+#define INIT_READ_MIN_SIZE (1)
+#define INIT_READ_PREAMBLE (2)
+static int init_read_mode =  INIT_READ_MIN_SIZE; 
 
 
 static int netstring_min_length  = NETSTRING_MIN_LENGTH_DEFAULT;
@@ -143,7 +150,7 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
 
   if (temp == NULL) {
     // implicitly call netstring_resume
-    fprintf(stderr, "WARNING: netstring: call to netstring_append after netstring_end, implicitly call \"netstring_resume\"\n");
+    fprintf(stderr, "WARNING: netstring: call to netstring_append after netstring_end, implicitly called \"netstring_resume\"\n");
     netstring_resume(ns_p);
   }
   strncpy(temp, str, len);               // Copy the string to the buffer
@@ -169,7 +176,7 @@ extern void netstring_write(int fd, NETSTRING *ns_p) {
 }
 extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 
-  fwrite(ns_p-> netstring, 1, ns_p-> netstring_size, fp);
+  fwrite(ns_p-> netstring, sizeof(char), ns_p-> netstring_size, fp);
   return;
 }
 
@@ -271,25 +278,156 @@ extern void netstring_read(int fd, NETSTRING *ns_p) {
   return;
 }
 
+// The Overall objective of this implementation of netstring
+// is to support the SCGI protocol.  In this protocol, the
+// contents of the SCGI message include: 
+//   1. a netstring representing a set of CGI variables
+//   2. the body of the HTTP request that was sent to a webserver
+// 
+// The netstring needs to be decoded by a SCGI server and transformed
+// into an `environ`.  The SCGI server than invokes the requisite 
+// CGI program via a call to `exec`.  The CGI program expects the
+// contents of the HTTP request body is present on stdin.
+//
+// Under this assumption
+//   1. we need to take care to ONLY read the netstring
+//   2. we need to minimize the overhead in netstring processing, etc.
+//
+// In this implementation, we offer several different implementation
+// of using both read operations on file descriptors (int fd) and 
+// fread operations on streams (FILE *fp).
+//
+// The key drivers to these implementations is minimize the initial
+// read of a file to obtain the size of the netstring.
+//
+// The smallest length of a netstring is 3 characters, which represents
+// a netstring containing a single string of zero (0) length: `0:,`.
+//
+// The smallest length of a netstring used within the SCGI protocol is
+// 29 characters.  This is because the encoded string must contain at
+// least the following 26 characters:
+//
+//    C O N T E N T _ L E N G T H \0 . \0 S C G I \0 1 . 1 \0
+//  
+// The preamble of a 32-bit representation of a netstring is at most 
+// 11 characters. A 32-bit number can be represented using 10 decimal 
+// digits, and then we need one addition character for the colon ':'.
+//
+// As such, depending on constraints, the number of characters that can
+// be safely retrieved is between 3 and 11.
+//
+// The following equations defines the number of characters to be
+// read on the initial read via a file descriptor:
+//
+//    min( max( 3, strlen(min-string)), 11)
+//
+// The equation is evaluated to be:
+//      3:  for an arbitrary netstring
+//     11:  for an SCGI-compliant netstring
+// 
+// In general, we don't know the strlen of the minimal `string`.  If we,
+// however, set a minimum string length, we can adjust the amount characters
+// that can safely read via a file descriptor.
+//
+// Note that if we use streams (FILE *fp), the stream abstraction will
+// perform appropriate buffering WITHOUT fear of over consuming file data.
+// We still provided variations of implementation as part of our
+// performance analysis and learning approach.
+
+
+// Approaches
+//   BRUTE:       read one character at a time, until ":"
+//   MIN_SIZE:    fread(string, 1, size, fp) -- size is either 3 or 11 depending on suite
+//                second trigger will need to examine PREABLE_MAX
+//   PREAMBLE:    fscanf("%zu:", size)   -- only doe sprintf
+//     - defualt, requires two reads
+
+
+
 
 extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
   // Reads a netstring from the given STREAM
-  int  retval;
-  int h_size;
-  char colon  = '\0';
+  int    retval;
+  size_t h_size;
+  size_t to_read;
+  int residual;
+
+char *value;
+  char   colon  = '\0';
+  char   comma  = '\0';
+  char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
+  char   *next;
+
+  int  init_buff_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
+
+  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
 
   /* Syntax:    P ->    <h_size> ":" <header> "," <body>          */
   /*                                                              */
   /*   Read the <h_size> and the ":".                             */
   /*   Place the header and the "," into the buffer               */
-  /*   Leaves the body on stdin.                                  */
-  { 
-    h_size = fread_int(&colon, fp);                       return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-                                                          return_error((colon  != ':'), ERROR_MISSING_COLON);
+  /*   Leaves the body on stdin.  */
 
-    retval = fread(ns_p-> strings[0], 1, h_size + 1, fp); return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
-    retval = *(ns_p-> strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
-  } 
+
+  // Read the PREAMBLE
+  switch (init_read_mode) {
+
+    case INIT_READ_BRUTE:
+      h_size = fread_int(&colon, fp);                       return_error(!(h_size >=0), ERROR_INVALID_SIZE);
+                                                            return_error((colon  != ':'), ERROR_MISSING_COLON);
+      next = ns_p-> strings[0];
+      to_read = h_size;
+      break;
+
+    case INIT_READ_MIN_SIZE:
+      fread(preamble_buffer, sizeof(char), init_buff_size, fp);
+
+      // If no ":", read more into the preamble_buffer
+      // Note the string size > 99
+      // Hence we can safely read more
+      value = strchr(preamble_buffer, ':');
+      if (value == NULL) {
+        fread(preamble_buffer + init_buff_size, 
+              sizeof(char),
+              NETSTRING_PREAMBLE_MAX - init_buff_size,
+              fp);
+        init_buff_size = NETSTRING_PREAMBLE_MAX;
+      }
+
+      h_size = (size_t) strtol(preamble_buffer, &next, 10);
+          return_error( (*next != ':'), ERROR_OTHER);
+
+      // In the preamble_buffer have ddddd:sssss
+      //             preamble_buffer ^    ^
+      //                             next |
+      // residual is what is left in the buffer
+      // preamble length is:   next - preamble_buffer + 1
+      // residual is int_buff_size + 1
+      residual =  init_buff_size - (next - preamble_buffer + 1);
+
+      // copy the stuff after the ':'
+      strncpy(ns_p-> strings[0], next+1, residual);
+
+      next = ns_p->strings[0] + residual;
+      to_read =  h_size - residual;
+      break;
+
+    case INIT_READ_PREAMBLE:
+      fscanf(fp, "%zu:", &h_size);
+
+      next = ns_p-> strings[0];
+      to_read = h_size;
+      break;
+
+    default:
+      assert(TRUE);
+      break;
+  }
+
+  // read the rest of the strings and the EPILOGUE
+  retval = fread(next, sizeof(char), to_read + 1, fp); return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
+
+  comma = *(ns_p-> strings[0] + h_size);              return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
 
   build_strings_array(ns_p, h_size);
 

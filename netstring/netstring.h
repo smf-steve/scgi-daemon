@@ -91,6 +91,8 @@ typedef struct _NETSTRING {
 
 #define NETSTRING_MIN_READ_BUFFER (3)
 
+#define min(a,b) ((a<=b)? a : b)
+#define max(a,b) ((a<=b)? b : a)
 
 #define netstring_allocate(count, size)  netstring_start(count, size)
 extern NETSTRING *netstring_start(size_t count, size_t str_size);  
