@@ -1,7 +1,7 @@
 TARGETS=netstring scgi_netstring netstring.a
 CFLAGS=-g
 STH_DIR=sth
-TEST_CASES=cgi_env large
+TEST_CASES=cgi_env large one two three four five six seven eight nine
 
 all: $(TARGETS)
 	@echo TESTING
@@ -9,6 +9,7 @@ all: $(TARGETS)
 	@echo
 	@cd sth ; for i in ${TEST_CASES} ; do \
 	  echo $$i: ; \
+	  echo "----------" ; \
 	  ./tester.bash $$i ; \
 	  echo ; \
 	done
