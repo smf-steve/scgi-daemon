@@ -97,8 +97,10 @@ int main(int argc, char *argv[], char **envp) {
 
         str = fgetln(stdin, &length);
         while (length != 0) {
+
           // remove the '\n' deliminator
           if (str[length - 1] == '\n') {
+             str[length - 1] = '\0';
              length --;
           } 
  
