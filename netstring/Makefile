@@ -1,10 +1,18 @@
 TARGETS=netstring scgi_netstring netstring.a
 CFLAGS=-g
+STH_DIR=sth
+TEST_CASES=cgi_env large
 
 all: $(TARGETS)
-	./netstring    <cgi_env         >encoded_cgi_env
-	./netstring -d <encoded_cgi_env >decoded_cgi_env
-	diff --brief cgi_env decoded_cgi_env
+	@echo TESTING
+	@echo ---
+	@echo
+	@cd sth ; for i in ${TEST_CASES} ; do \
+	  echo $$i: ; \
+	  ./tester.bash $$i ; \
+	  echo ; \
+	done
+
 
 # unable to link via the command: cc -o netstring netstring_utility.o -L. -lnetstring
 netstring: netstring.a netstring_utility.o

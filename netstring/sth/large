@@ -1,0 +1,134 @@
+total 328
+-rwxr-xr-x   1 steve  staff  33848 Sep 13 12:55 a.out*
+drwxr-xr-x   3 steve  staff     96 Sep 12 16:26 a.out.dSYM/
+drwxr-xr-x   2 steve  staff     64 Sep  3 10:18 accept-fork/
+-rw-r--r--   1 steve  staff   1219 Sep 14 18:19 CGI_Variable_LIST
+-rw-r--r--   1 steve  staff    984 Sep  1  2025 Dockerfile
+-rw-r--r--   1 steve  staff    316 Sep  6 11:22 fopen_test.c
+drwxr-xr-x   2 steve  staff     64 Sep  3 10:18 fork-accept-1/
+drwxr-xr-x   2 steve  staff     64 Sep  3 10:19 fork-accept-pool/
+drwxr-xr-x   3 steve  staff     96 Sep  3 10:21 images/
+-rw-r--r--   1 steve  staff  35149 Aug 31  2025 LICENSE
+-rw-r--r--   1 steve  staff    374 Aug 31  2025 Makefile
+-rw-r--r--   1 steve  staff      2 Sep 12 17:33 myerr
+drwxr-xr-x  23 steve  staff    736 Sep 19 08:25 netstring/
+-rw-r--r--   1 steve  staff   9547 Sep 15 18:19 NOTES
+-rw-r--r--   1 steve  staff  12013 Sep 17 18:56 NOTES.md
+-rw-r--r--   1 steve  staff    359 Sep 13 08:00 pair_read_test.c
+drwxr-xr-x   2 steve  staff     64 Sep  3 10:19 performance/
+-rw-r--r--   1 steve  staff   5190 Sep 16 10:44 Performance questions.md
+-rw-r--r--   1 steve  staff    630 Sep 13 12:55 pread.c
+-rw-r--r--   1 steve  staff   1040 Sep  6 18:27 QUESTIONS
+-rw-r--r--   1 steve  staff    319 Sep 12 16:31 read_test.c
+-rw-r--r--   1 steve  staff    952 Sep 12 16:25 read_test.o
+-rw-r--r--   1 steve  staff   8407 Sep 10 13:34 README.md
+drwxr-xr-x   6 steve  staff    192 Sep  3 11:03 scgi-launch/
+-rw-r--r--   1 steve  staff   6144 Sep 13 12:55 t
+drwxr-xr-x   8 steve  staff    256 Aug 31  2025 tests/
+
+../a.out.dSYM:
+total 0
+drwxr-xr-x  4 steve  staff  128 Sep 12 16:26 Contents/
+
+../a.out.dSYM/Contents:
+total 8
+-rw-r--r--  1 steve  staff  634 Sep 12 16:31 Info.plist
+drwxr-xr-x  4 steve  staff  128 Sep 12 16:26 Resources/
+
+../a.out.dSYM/Contents/Resources:
+total 0
+drwxr-xr-x  3 steve  staff  96 Sep 12 16:26 DWARF/
+drwxr-xr-x  3 steve  staff  96 Sep 12 16:26 Relocations/
+
+../a.out.dSYM/Contents/Resources/DWARF:
+total 24
+-rw-r--r--  1 steve  staff  9248 Sep 12 16:31 a.out
+
+../a.out.dSYM/Contents/Resources/Relocations:
+total 0
+drwxr-xr-x  3 steve  staff  96 Sep 12 16:26 aarch64/
+
+../a.out.dSYM/Contents/Resources/Relocations/aarch64:
+total 8
+-rw-r--r--  1 steve  staff  89 Sep 12 16:31 a.out.yml
+
+../accept-fork:
+total 0
+
+../fork-accept-1:
+total 0
+
+../fork-accept-pool:
+total 0
+
+../images:
+total 328
+-rw-r--r--  1 steve  staff  167328 Aug 31  2025 scgi-launch_arch.png
+
+../netstring:
+total 456
+-rw-r--r--  1 steve  staff     51 Sep 11 16:49 cgi_env
+-rw-r--r--  1 steve  staff     51 Sep 19 08:24 decoded_cgi_env
+-rw-r--r--  1 steve  staff     55 Sep 19 08:24 encoded_cgi_env
+-rw-r--r--  1 steve  staff      0 Sep 19 08:25 large
+-rw-r--r--  1 steve  staff    904 Sep 18 12:57 Makefile
+-rwxr-xr-x  1 steve  staff  53128 Sep 19 08:24 netstring*
+-rw-r--r--  2 steve  staff   6245 Sep 18 12:06 netstring_utility.c
+-rw-r--r--  1 steve  staff   5280 Sep 18 13:00 netstring_utility.o
+-rw-r--r--  1 steve  staff  16144 Sep 19 08:24 netstring.a
+-rw-r--r--  1 steve  staff  13906 Sep 19 08:24 netstring.c
+-rw-r--r--  1 steve  staff   3868 Sep 18 19:22 netstring.h
+-rw-r--r--  1 steve  staff  15712 Sep 19 08:24 netstring.o
+-rw-r--r--@ 1 steve  staff   1882 Sep 14 18:41 README.md
+-rwxr-xr-x  1 steve  staff  53136 Sep 19 08:24 scgi_netstring*
+-rw-r--r--  2 steve  staff   6245 Sep 18 12:06 scgi_netstring_utility.c
+-rw-r--r--  1 steve  staff   6672 Sep 19 08:24 scgi_netstring.a
+-rw-r--r--  1 steve  staff   7579 Sep 18 12:31 scgi_netstring.c
+drwxr-xr-x  3 steve  staff     96 Sep 11 16:18 scgi_netstring.dSYM/
+-rw-r--r--  1 steve  staff   1217 Sep 18 12:45 scgi_netstring.h
+-rw-r--r--  1 steve  staff   6432 Sep 18 13:00 scgi_netstring.o
+
+../netstring/scgi_netstring.dSYM:
+total 0
+drwxr-xr-x  4 steve  staff  128 Sep 11 16:18 Contents/
+
+../netstring/scgi_netstring.dSYM/Contents:
+total 8
+-rw-r--r--  1 steve  staff  643 Sep 11 16:54 Info.plist
+drwxr-xr-x  4 steve  staff  128 Sep 11 16:18 Resources/
+
+../netstring/scgi_netstring.dSYM/Contents/Resources:
+total 0
+drwxr-xr-x  3 steve  staff  96 Sep 11 16:18 DWARF/
+drwxr-xr-x  3 steve  staff  96 Sep 11 16:18 Relocations/
+
+../netstring/scgi_netstring.dSYM/Contents/Resources/DWARF:
+total 32
+-rw-r--r--  1 steve  staff  15656 Sep 11 16:54 scgi_netstring
+
+../netstring/scgi_netstring.dSYM/Contents/Resources/Relocations:
+total 0
+drwxr-xr-x  3 steve  staff  96 Sep 11 16:18 aarch64/
+
+../netstring/scgi_netstring.dSYM/Contents/Resources/Relocations/aarch64:
+total 8
+-rw-r--r--  1 steve  staff  98 Sep 11 16:54 scgi_netstring.yml
+
+../performance:
+total 0
+
+../scgi-launch:
+total 80
+-rw-r--r--@ 1 steve  staff   5344 Sep 10 16:26 README.md
+-rwxr-xr-x  1 steve  staff   2725 Sep  1 13:29 scgi-launch.bash*
+-rwxr-xr-x  1 steve  staff  13216 Aug 31  2025 scgi2env-exec*
+-rw-r--r--  1 steve  staff   9055 Sep  1 13:17 scgi2env-exec.c
+
+../tests:
+total 48
+-rwxr-xr-x  1 steve  staff  1587 Aug 31  2025 emit-env.cgi*
+-rwxr-xr-x  1 steve  staff   647 Aug 31  2025 emit-scgi-env.cgi*
+-rw-r--r--  1 steve  staff  1581 Aug 31  2025 gen-request.c
+-rw-r--r--  1 steve  staff  1721 Aug 31  2025 Makefile
+-rw-r--r--  1 steve  staff   101 Aug 31  2025 simple.request
+-rw-r--r--  1 steve  staff  1090 Aug 31  2025 www.sandbox.csun.edu.request
