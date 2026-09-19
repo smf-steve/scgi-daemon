@@ -39,7 +39,9 @@ scgi_netstring_utility.c: netstring.h scgi_netstring.h
 
 
 clean:
-	$(RM) *.o
+	$(RM) *.o 
+	$(RM) sth/encoded* sth/decoded*
+	$(RM) -r a.out* *.dSYM
 
 refresh:
 	make clean
