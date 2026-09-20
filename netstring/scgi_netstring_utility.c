@@ -39,6 +39,9 @@
 /*                                                               */
 /*    --use-stream    : use streams (FILE *fp) for I/O           */
 /*                                                               */
+/*    --scgi          : validate that netstring conforms to      */
+/*                      the SCGI protocol                        */
+/*                                                               */
 /* Environment Variables:                                        */
 /*    In liu of the above command-line options, environment      */
 /*    variables can be defined to achieve the same effect. If    */
@@ -49,6 +52,7 @@
 /*    NETSTRING_MAX_STRINGS : 255                                */
 /*    NETSTRING_USE_FILES   : defined                            */
 /*    NETSTRING_USE_STREAMS : undefined (overrides USE_FILES)    */
+/*    NETSTRING_FOR_SCGI    : undefined                          */
 /*                                                               */
 /*****************************************************************/
 
@@ -74,7 +78,7 @@ int main(int argc, char *argv[], char **envp) {
 
   // DEFAULT operations of the program
   int operation    = NETSTRING_ENCODE;
-  int io_mechanism = NETSTRING_USE_STREAMS;
+  int io_mechanism = NETSTRING_USE_FDS;
 
   if (argc > 1) {
     if (strcmp(argv[1], "-e") == 0 ) {
