@@ -254,22 +254,76 @@ static int fread_int(char *next, FILE *fp) {
 
 extern void netstring_read(int fd, NETSTRING *ns_p) {
   // Reads a netstring from the given file
-  int  retval;
-  int h_size;
-  char colon  = '\0';
+  int    retval;
+  size_t h_size;
+  size_t to_read;
+  int residual;
 
-  /* Syntax:    P ->    <h_size> ":" <header> "," <body>          */
-  /*                                                              */
-  /*   Read the <h_size> and the ":".                             */
-  /*   Place the header and the "," into the buffer               */
-  /*   Leaves the body on stdin.                                  */
-  { 
-    h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-                                                          return_error((colon  != ':'), ERROR_MISSING_COLON);
+char *value;
+  char   colon  = '\0';
+  char   comma  = '\0';
+  char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
+  char   *next;
 
-    retval = read(fd, ns_p-> strings[0], h_size + 1);     return_error((retval != h_size+1), ERROR_TRUNCATED_STRING);
-    retval = *(ns_p-> strings[0]+ h_size);                return_error((retval != ','), ERROR_MISSING_TRAILING_COMMA);    
-  } 
+
+  int  init_buff_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
+
+  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
+
+  switch (init_read_mode) {
+    case INIT_READ_BRUTE:
+      h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
+
+      next = ns_p-> strings[0];
+      to_read = h_size;                                                          return_error((colon  != ':'), ERROR_MISSING_COLON);
+      break;
+
+    case INIT_READ_MIN_SIZE:
+      read(fd, preamble_buffer, init_buff_size);
+
+      // If no ":", read more into the preamble_buffer
+      // Note the string size > 99
+      // Hence we can safely read more
+      value = strchr(preamble_buffer, ':');
+      if (value == NULL) {
+        read(fd, preamble_buffer + init_buff_size, 
+              NETSTRING_PREAMBLE_MAX - init_buff_size);
+        init_buff_size = NETSTRING_PREAMBLE_MAX;
+      }
+
+      h_size = (size_t) strtol(preamble_buffer, &next, 10);
+          return_error( (*next != ':'), ERROR_OTHER);
+
+      // In the preamble_buffer have ddddd:sssss
+      //             preamble_buffer ^    ^
+      //                             next |
+      // residual is what is left in the buffer
+      // preamble length is:   next - preamble_buffer + 1
+      // residual is int_buff_size + 1
+      residual =  init_buff_size - (next - preamble_buffer + 1);
+
+      // copy the stuff after the ':'
+      strncpy(ns_p-> strings[0], next+1, residual);
+
+      next = ns_p->strings[0] + residual;
+      to_read =  h_size - residual;
+
+      break;
+
+    case INIT_READ_PREAMBLE:
+      assert(TRUE);
+      break;
+
+    default:
+      assert(TRUE);
+      break;
+
+  }
+
+  // read the rest of the strings and the EPILOGUE
+  retval = read(fd, next, to_read + 1);               return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
+
+  comma = *(ns_p-> strings[0] + h_size);              return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
 
   build_strings_array(ns_p, h_size);
   
