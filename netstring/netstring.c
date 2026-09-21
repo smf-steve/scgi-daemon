@@ -463,7 +463,7 @@ static void build_strings_array(NETSTRING *ns_p, int h_size) {
   char *start_p, *end_p;    // Walker pointers
   int count = 0;
 
-  start_p = ns_-> strings[0];
+  start_p = ns_p-> strings[0];
   end_p   = start_p + h_size;
 
   while (start_p < end_p) {
