@@ -4,6 +4,9 @@ STH_DIR=sth
 TEST_CASES=cgi_env large one two three four five six seven eight nine
 
 all: $(TARGETS)
+
+
+test:	
 	@echo TESTING
 	@echo ---
 	@echo
@@ -15,27 +18,26 @@ all: $(TARGETS)
 	done
 
 
-# unable to link via the command: cc -o netstring netstring_utility.o -L. -lnetstring
-netstring: netstring.a netstring_utility.o
-	$(CC) -o $@ netstring_utility.o netstring.a
+netstring: libnetstring.a netstring_utility.o
+	$(CC) -o $@ netstring_utility.o -L . -lnetstring
 
-scgi_netstring: netstring.a scgi_netstring.a netstring_utility.o
-	$(CC) -o $@ -DSCGI_ENCODING netstring_utility.o netstring.a scgi_netstring.a
+scgi_netstring: libscgi_netstring.a netstring_utility.o
+	$(CC) -o $@ -DSCGI_ENCODING netstring_utility.o -L . -lscgi_netstring
 
 netstring_utility.o: netstring_utility.c
 
 
-netstring.a: netstring.o
+libnetstring.a: netstring.o
 	$(AR) -rcs $@ $<
 
-scgi_netstring.a: scgi_netstring.o netstring.o
-	$(AR) -rcs $@ $<
+libscgi_netstring.a: scgi_netstring.o netstring.o
+	$(AR) -rcs $@ $^
 
-netstring.c: netstring.h
-scgi_nestring.c: netstring.h scgi_netstring.h
+netstring.o: netstring.h netstring.c
+scgi_netstring.o: scgi_netstring.h scgi_netstring.c
 
-netstring_utility.c: netstring.h
-scgi_netstring_utility.c: netstring.h scgi_netstring.h	
+netstring_utility.o: netstring.h netstring_utility.c
+scgi_netstring_utility.o: scgi_netstring.h scgi_netstring.c
 
 
 clean:
