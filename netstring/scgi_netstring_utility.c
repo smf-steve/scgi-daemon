@@ -80,6 +80,12 @@ int main(int argc, char *argv[], char **envp) {
   int operation    = NETSTRING_ENCODE;
   int io_mechanism = NETSTRING_USE_FDS;
 
+  char *mode;
+  mode = getenv("NETSTRING_INIT_READ_MODE");
+  if (mode != NULL) {
+    netstring_set_init_read(atoi(mode));
+  }
+
   if (argc > 1) {
     if (strcmp(argv[1], "-e") == 0 ) {
        operation = NETSTRING_ENCODE;
