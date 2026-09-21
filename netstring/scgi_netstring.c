@@ -66,7 +66,7 @@
 /*                                                                                                                                   */
 
 
-// Values associated with the Header, provided for readability   
+// Values associated with the Header, provided for readability
 #define CONTENT_LENGTH "CONTENT_LENGTH"
 #define SCGI_NAME "SCGI"
 #define SCGI_VALUE '1'
@@ -76,7 +76,7 @@
 
 #define MAX_ENV_COUNT ( NETSTRING_MAX_STRINGS_DEFAULT / 2 )
 
-// Error Values and Associated Error Messages                                                      
+// Error Values and Associated Error Messages
 #define ERROR_SUCCESS (0)
 #define ERROR_PROTOCOL_ERROR (1)
 #define ERROR_MISSING_CONTENT_LENGTH (2)
@@ -99,19 +99,18 @@ static const char * error_msg[] = {
 
 
 // A simple macro used to test for an error, print the error,     
-// and then return a NULL pointer                                 
-// Used to make the code more readable                            
+// and then return a NULL pointer
+// Used to make the code more readable
 #define return_error(b,v) if (b) { \
       fprintf(stderr, "%s\n", error_msg[v]); return v; }
 
 
-                       
 int scgi_netstring_validate(NETSTRING *ns_p) {
   //  Ensure there is at least 4 strings
-  //  Ensure the array has an even number of strings             
+  //  Ensure the array has an even number of strings
   //  Ensure the first _name is "CONTENT_LENGTH"                 
-  //  Ensure the first _value is non-empty                       
-  //  Ensure SCGI appears as a _name                             
+  //  Ensure the first _value is non-empty
+  //  Ensure SCGI appears as a _name
   //  Ensure SCGI value is '1'    
   //  Ensure there are no duplicate _name's -- NOT implemented
 
@@ -132,16 +131,16 @@ int scgi_netstring_validate(NETSTRING *ns_p) {
     if (! strcmp(strings[i], SCGI_NAME)) {
       char *value = strings[i+1];
 
-      scgi_version = value[0] + value[1];    
+      scgi_version = value[0] + value[1];
       break;
     }
   }
   return_error((scgi_version != SCGI_VALUE), ERROR_INVALID_SCGI_VERSION);
 
-  
-  // Technically, the SCGI protocol states that  
+
+  // Technically, the SCGI protocol states that
   // there should be no duplicate names.
-  // In this implementation, we do not validate  
+  // In this implementation, we do not validate
   // this requirement.                           
 
 
@@ -154,17 +153,16 @@ char ** scgi_netstring2env(NETSTRING *ns_p) {
   char **strings  =  ns_p->strings;
   int  count      =  ns_p->strings_count;
 
-  
   if (count % 2 != 0) {
     fprintf(stderr, "%s\n", error_msg[ERROR_PROTOCOL_ERROR]);
     return NULL;
   }
 
 
-  // Reduce the strings structure in half      
+  // Reduce the strings structure in half
   //   1. replace '\0' before the value to be '='  
-  //   2. collapse the strings structure       
-  //   3. update the strings_count             
+  //   2. collapse the strings structure
+  //   3. update the strings_count
   for(int i=0; i < count; i +=2) {
     // name  = strings[i]
     // value = strings[i+1]

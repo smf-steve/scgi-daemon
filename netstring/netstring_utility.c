@@ -95,7 +95,7 @@ int main(int argc, char *argv[], char **envp) {
        operation = NETSTRING_ERROR;
      }
    }
-  
+
   switch (operation) {
     case NETSTRING_ENCODE:
       {
@@ -113,7 +113,7 @@ int main(int argc, char *argv[], char **envp) {
              str[length - 1] = '\0';
              length --;
           } 
- 
+
           netstring_append(ns_p, str, length);
           str = fgetln(stdin, &length);
         }
@@ -155,7 +155,7 @@ int main(int argc, char *argv[], char **envp) {
           exit(ret_val);
         }
 
-        strings = scgi_netstring2env(ns_p);     // collapse (name, value) pairs into name=value strings 
+        strings = scgi_netstring2env(ns_p);     // collapse (name, value) pairs into name=value strings
 #endif
 
         for(int count=0; strings[count] != NULL; count++) {

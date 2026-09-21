@@ -46,7 +46,7 @@ static int fread_int(char *next, FILE *fp);
 static void build_strings_array(NETSTRING *ns_p, int h_size);
 
 
-static int netstring_init_read_mode = NETSTRING_INIT_READ_MIN_SIZE; 
+static int netstring_init_read_mode = NETSTRING_INIT_READ_MIN_SIZE;
 extern void netstring_set_init_read(size_t mode) {
    assert(mode > 0);
    assert(mode <= 2);
@@ -97,8 +97,8 @@ extern NETSTRING *netstring_start(size_t count, size_t str_size) {
 
 
 extern void netstring_restart(NETSTRING *ns_p) {
-  // Resets the metadata with the NETSTRING to 
-  // represent an undefined netstring, while 
+  // Resets the metadata with the NETSTRING to
+  // represent an undefined netstring, while
   // reusing the underlying allocated data
   ns_p-> netstring      = NULL;
   ns_p-> netstring_size = 0;
@@ -135,7 +135,7 @@ extern void netstring_end(NETSTRING *ns_p) {
   }
 
   // End the strings[] data structure
-  ns_p-> strings[ns_p-> strings_count] = NULL;  
+  ns_p-> strings[ns_p-> strings_count] = NULL;
 
   // Mark the structure as fully defined by setting the netstring value
   ns_p-> netstring      = preamble_start;
@@ -174,7 +174,7 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
   if (str == NULL) { str = ""; }
   if (len == 0) { len = strlen(str); }
 
-  count = ns_p-> strings_count;          // Determine the location to place the string 
+  count = ns_p-> strings_count;          // Determine the location to place the string
   temp  = ns_p-> strings[count];         // based upon working count
 
   if (temp == NULL) {
@@ -189,9 +189,9 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
   ns_p-> strings_length += len + 1;      // Update the total length
 
   count ++; temp++;                      // Update the working count and location
-  ns_p-> strings[count] = temp;                
+  ns_p-> strings[count] = temp;
   ns_p-> strings_count  = count;
-  
+
   assert(temp < ns_p-> buffer + ns_p-> buffer_asize);
   assert(ns_p-> strings_count < ns_p-> strings_asize);
 
@@ -220,89 +220,6 @@ extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 }
 
 
-extern void netstring_read(int fd, NETSTRING *ns_p) {
-  // Reads a netstring from the given file
-  int    retval;
-  size_t h_size;
-  size_t to_read;
-  int residual;
-
-char *value;
-  char   colon  = '\0';
-  char   comma  = '\0';
-  char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
-  char   *next;
-
-
-  int  init_buff_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
-
-  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
-
-  switch (netstring_init_read_mode) {
-    case NETSTRING_INIT_READ_PREAMBLE:
-      //
-      fprintf(stderr, "Netstring Warning: Use of the `read preamble` mode is not supported with FDs\n");
-      fprintf(stderr, "                   Defaulting to `read brute` mode\n");
-
-      // merge; break;
-
-    case NETSTRING_INIT_READ_BRUTE:
-      h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-
-      next = ns_p-> strings[0];
-      to_read = h_size;                                     return_error((colon  != ':'), ERROR_MISSING_COLON);
-      break;
-
-    case NETSTRING_INIT_READ_MIN_SIZE:
-      *(preamble_buffer + init_buff_size) = '\0';
-      read(fd, preamble_buffer, init_buff_size);
-
-      // If no ":", read more into the preamble_buffer
-      // Note the string size > 99
-      // Hence we can safely read more
-      value = strchr(preamble_buffer, ':');
-      if (value == NULL) {
-        read(fd, preamble_buffer + init_buff_size, 
-              NETSTRING_PREAMBLE_MAX - init_buff_size);
-        init_buff_size = NETSTRING_PREAMBLE_MAX;
-      }
-
-      h_size = (size_t) strtol(preamble_buffer, &next, 10);
-          return_error( (*next != ':'), ERROR_MISSING_COLON);
-
-      // In the preamble_buffer have ddddd:sssss
-      //             preamble_buffer ^    ^
-      //                             next |
-      // residual is what is left in the buffer
-      // preamble length is:   next - preamble_buffer + 1
-      // residual is int_buff_size + 1
-      residual =  init_buff_size - (next - preamble_buffer + 1);
-
-      // copy the stuff after the ':'
-      strncpy(ns_p-> strings[0], next+1, residual);
-
-      next = ns_p->strings[0] + residual;
-      to_read =  h_size - residual;
-
-      break;
-
-    default:
-      assert(TRUE);
-      break;
-
-  }
-
-  // read the rest of the strings and the EPILOGUE
-  retval = read(fd, next, to_read + 1);               
-  comma = *(ns_p-> strings[0] + h_size);              
-    return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
-    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
-
-  build_strings_array(ns_p, h_size);
-  ns_p-> strings_length = h_size;
-
-  return;
-}
 
 // The Overall objective of this implementation of netstring
 // is to support the SCGI protocol.  In this protocol, the
@@ -311,7 +228,7 @@ char *value;
 //   2. the body of the HTTP request that was sent to a webserver
 // 
 // The netstring needs to be decoded by a SCGI server and transformed
-// into an `environ`.  The SCGI server than invokes the requisite 
+// into an `environ`.  The SCGI server than invokes the requisite
 // CGI program via a call to `exec`.  The CGI program expects the
 // contents of the HTTP request body is present on stdin.
 //
@@ -320,7 +237,7 @@ char *value;
 //   2. we need to minimize the overhead in netstring processing, etc.
 //
 // In this implementation, we offer several different implementation
-// of using both read operations on file descriptors (int fd) and 
+// of using both read operations on file descriptors (int fd) and
 // fread operations on streams (FILE *fp).
 //
 // The key drivers to these implementations is minimize the initial
@@ -335,8 +252,8 @@ char *value;
 //
 //    C O N T E N T _ L E N G T H \0 . \0 S C G I \0 1 . 1 \0
 //  
-// The preamble of a 32-bit representation of a netstring is at most 
-// 11 characters. A 32-bit number can be represented using 10 decimal 
+// The preamble of a 32-bit representation of a netstring is at most
+// 11 characters. A 32-bit number can be represented using 10 decimal
 // digits, and then we need one addition character for the colon ':'.
 //
 // As such, depending on constraints, the number of characters that can
@@ -366,15 +283,189 @@ char *value;
 //   MIN_SIZE:    fread(string, 1, size, fp) -- size is either 3 or 11 depending on suite
 //                second trigger will need to examine PREABLE_MAX
 //   PREAMBLE:    fscanf("%zu:", size)   -- only doe sprintf
-//     - defualt, requires two reads
+//     - default, requires two reads
+
+
+// Reads a netstring from the given file descriptor
+extern void netstring_read(int fd, NETSTRING *ns_p) {
+  size_t h_size;         // values from the preamble
+  char   colon  = '\0';  // values from the preamble
+  char   comma  = '\0';  // values from the preamble
+
+  size_t to_read;        // number chars to read
+  int    read_chars;     // number of chars returned
+  int    residual;       // extra chars in preamble buffer
+  char   *next_p;        // next location with the strings buffer
+
+  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
+
+  // Read the PREAMBLE
+  switch (netstring_init_read_mode) {
+    case NETSTRING_INIT_READ_PREAMBLE:
+      fprintf(stderr, "Netstring Warning: Use of the `read preamble` mode is not supported with FDs\n");
+      fprintf(stderr, "                   Defaulting to `read brute` mode\n");
+
+      // merge; break;
+
+
+    case NETSTRING_INIT_READ_BRUTE:
+      h_size = read_int(fd, &colon);
+        return_error(!(h_size >=0),   ERROR_INVALID_SIZE);
+        return_error((colon  != ':'), ERROR_MISSING_COLON);
+
+      next_p = ns_p-> strings[0];
+      to_read = h_size;
+      break;
+
+    case NETSTRING_INIT_READ_MIN_SIZE: 
+      {
+        char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
+        int    init_read_size;
+
+        init_read_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
+
+        read(fd, preamble_buffer, init_read_size);
+        *(preamble_buffer + init_read_size) = '\0';
+
+        // If no ":", we can safely read more into the preamble_buffer
+        if (strchr(preamble_buffer, ':') == NULL) {
+          read(fd, 
+               preamble_buffer + init_read_size, 
+
+               NETSTRING_PREAMBLE_MAX - init_read_size
+               );
+          init_read_size = NETSTRING_PREAMBLE_MAX;
+        }
+
+        h_size = (size_t) strtol(preamble_buffer, &next_p, 10);
+          return_error( (*next_p != ':'), ERROR_MISSING_COLON);
+
+        // In the preamble_buffer have ddddd:sssss
+        //             preamble_buffer ^    ^
+        //                           next_p |
+        // residual is what is left in the buffer
+        // preamble length is:   next_p - preamble_buffer + 1
+        // residual is int_read_size + 1
+        residual =  init_read_size - (next_p - preamble_buffer + 1);
+
+        // copy the stuff after the ':'
+        strncpy(ns_p-> strings[0], next_p+1, residual);
+
+        next_p  = ns_p->strings[0] + residual;
+        to_read =  h_size - residual;
+      }
+      break;
+
+    default:
+      assert(TRUE);
+      break;
+  }
+
+  // read the rest of the strings and the EPILOGUE
+  read_chars = read(fd, next_p, to_read + 1);
+  comma  = *(ns_p-> strings[0] + h_size);
+    return_error((read_chars != to_read + 1), ERROR_TRUNCATED_STRING);
+    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);
+
+  build_strings_array(ns_p, h_size);
+  ns_p-> strings_length = h_size;
+
+  return;
+}
+
+
+// netstring_fread mimics netstring_read
+// Reads a netstring from the given STREAM
+extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
+  size_t h_size;         // values from the preamble
+  char   colon  = '\0';  // values from the preamble
+  char   comma  = '\0';  // values from the preamble
+
+  size_t to_read;        // number chars to read
+  int    read_chars;     // number of chars returned
+  int    residual;       // extra chars in preamble buffer
+  char   *next_p;        // next location with the strings buffer
+
+
+  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
+
+  // Read the PREAMBLE
+  switch (netstring_init_read_mode) {
+    case NETSTRING_INIT_READ_PREAMBLE:
+      fscanf(fp, "%zu:", &h_size);
+
+      next_p = ns_p-> strings[0];
+      to_read = h_size;
+      break;
+
+    case NETSTRING_INIT_READ_BRUTE:
+      h_size = fread_int(&colon, fp);
+         return_error(!(h_size >=0), ERROR_INVALID_SIZE);
+         return_error((colon  != ':'), ERROR_MISSING_COLON);
+
+      next_p = ns_p-> strings[0];
+      to_read = h_size;
+      break;
+
+    case NETSTRING_INIT_READ_MIN_SIZE:
+      {
+        char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
+        int    init_read_size;
+
+        init_read_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
+
+        fread(preamble_buffer, sizeof(char), init_read_size, fp);
+        *(preamble_buffer + init_read_size) = '\0';
+
+        // If no ":", we can safely read more into the preamble_buffer
+        if (strchr(preamble_buffer, ':') == NULL) {
+          fread(
+                preamble_buffer + init_read_size, 
+                sizeof(char),
+                NETSTRING_PREAMBLE_MAX - init_read_size,
+                fp);
+          init_read_size = NETSTRING_PREAMBLE_MAX;
+        }
+
+        h_size = (size_t) strtol(preamble_buffer, &next_p, 10);
+          return_error( (*next_p != ':'), ERROR_MISSING_COLON);
+
+        residual =  init_read_size - (next_p - preamble_buffer + 1);
+
+        // copy the stuff after the ':'
+        strncpy(ns_p-> strings[0], next_p+1, residual);
+
+        next_p  = ns_p->strings[0] + residual;
+        to_read =  h_size - residual;
+      }
+      break;
+
+    default:
+      assert(TRUE);
+      break;
+  }
+
+  // read the rest of the strings and the EPILOGUE
+  read_chars = fread(next_p, sizeof(char), to_read + 1, fp);
+  comma  = *(ns_p-> strings[0] + h_size);
+    return_error((read_chars != to_read + 1), ERROR_TRUNCATED_STRING);
+    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);
+
+  build_strings_array(ns_p, h_size);
+  ns_p-> strings_length = h_size;
+
+  return;
+}
+
+
 
 static void build_strings_array(NETSTRING *ns_p, int h_size) {
-  char *start_p, *end_p;    // Walker pointers 
-  int count = 0;             
+  char *start_p, *end_p;    // Walker pointers
+  int count = 0;
 
-  start_p = ns_p-> strings[0];
+  start_p = ns_-> strings[0];
   end_p   = start_p + h_size;
-  
+
   while (start_p < end_p) {
     next_start(start_p);
     count ++;
@@ -388,125 +479,33 @@ static void build_strings_array(NETSTRING *ns_p, int h_size) {
 
 
 
-extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
-  // Reads a netstring from the given STREAM
-  int    retval;
-  size_t h_size;
-  size_t to_read;
-  int residual;
-
-char *value;
-  char   colon  = '\0';
-  char   comma  = '\0';
-  char   preamble_buffer[NETSTRING_PREAMBLE_MAX+1];
-  char   *next;
-
-  int  init_buff_size = min(max(NETSTRING_MIN_READ_BUFFER, netstring_min_length), NETSTRING_PREAMBLE_MAX);
-
-  assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
-
-  // Read the PREAMBLE
-  switch (netstring_init_read_mode) {
-
-    case NETSTRING_INIT_READ_BRUTE:
-      h_size = fread_int(&colon, fp);                       
-         return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-         return_error((colon  != ':'), ERROR_MISSING_COLON);
- 
-      next = ns_p-> strings[0];
-      to_read = h_size;
-      break;
-
-    case NETSTRING_INIT_READ_MIN_SIZE:
-      *(preamble_buffer + init_buff_size) = '\0';
-      fread(preamble_buffer, sizeof(char), init_buff_size, fp);
-
-      // If no ":", read more into the preamble_buffer
-      // Note the string size > 99
-      // Hence we can safely read more
-      value = strchr(preamble_buffer, ':');
-      if (value == NULL) {
-        fread(preamble_buffer + init_buff_size, 
-              sizeof(char),
-              NETSTRING_PREAMBLE_MAX - init_buff_size,
-              fp);
-        init_buff_size = NETSTRING_PREAMBLE_MAX;
-      }
-
-      h_size = (size_t) strtol(preamble_buffer, &next, 10);
-          return_error( (*next != ':'), ERROR_MISSING_COLON);
-
-      // In the preamble_buffer have ddddd:sssss
-      //             preamble_buffer ^    ^
-      //                             next |
-      // residual is what is left in the buffer
-      // preamble length is:   next - preamble_buffer + 1
-      // residual is int_buff_size + 1
-      residual =  init_buff_size - (next - preamble_buffer + 1);
-
-      // copy the stuff after the ':'
-      strncpy(ns_p-> strings[0], next+1, residual);
-
-      next = ns_p->strings[0] + residual;
-      to_read =  h_size - residual;
-      break;
-
-    case NETSTRING_INIT_READ_PREAMBLE:
-      fscanf(fp, "%zu:", &h_size);
-
-      next = ns_p-> strings[0];
-      to_read = h_size;
-      break;
-
-    default:
-      assert(TRUE);
-      break;
-  }
-
-  // read the rest of the strings and the EPILOGUE
-  retval = fread(next, sizeof(char), to_read + 1, fp); 
-     return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
-
-  comma = *(ns_p-> strings[0] + h_size);               
-     return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
-
-  build_strings_array(ns_p, h_size);
-
-  ns_p-> strings_length = h_size;
-
-  return;
-}
-
-
-
 // Support functions to read a int, on char at a time
 // via read and fread.
-static int read_int(int fd, char *next) {
-    // reads from the file descriptor (fd)
-    // - a number 
-    // - the next char
-    // returns the next char from the file descriptor
+static int read_int(int fd, char *next_char) {
+  // reads a number from the file descriptor (fd)
+  // returns
+  //   - the value of the number
+  //   - updates the next_char parameter
+  int  number = 0;
+  char digit;
 
-   int  number = 0;
-   char digit;
+  read(fd, &digit, 1);
+  while ( digit >= '0' && digit <= '9') {
+    number = number * 10 + ( digit - '0');
+    read(fd, &digit, 1);
+  }
 
-   read(fd, &digit, 1);
-   while ( digit >= '0' && digit <= '9') {
-     number = number * 10 + ( digit - '0');
-     read(fd, &digit, 1);
-   }
-
-   *next   = digit;
-   return  number;
+  *next_char   = digit;
+  return  number;
 }
 
 
 
-static int fread_int(char *next, FILE *fp) {
-    // reads from the file descriptor (fd)
-    // - a number 
-    // - the next char
-    // returns the next char from the file descriptor
+static int fread_int(char *next_char, FILE *fp) {
+    // reads a number from the file descriptor (fd)
+    // returns
+    //   - the value of the number
+    //   - updates the next_char parameter
 
    int  number = 0;
    char digit;
@@ -517,7 +516,7 @@ static int fread_int(char *next, FILE *fp) {
      fread(&digit, 1, 1, fp);
    }
 
-   *next   = digit;
+   *next_char   = digit;
    return  number;
 }
 

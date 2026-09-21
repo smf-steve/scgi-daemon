@@ -28,13 +28,13 @@ extern char ** scgi_netstring2env(NETSTRING *ns_p);
 extern int scgi_fread2env(char *env[], int size, FILE * fp);
   // Intended to be used as part of a SCGI server
   // Reads a netstring from a Stream, creates an environ
-  // containing the SCGI variables to be passed 
+  // containing the SCGI variables to be passed
   // directly to `execle`
 
 extern int scgi_read2env(int fd, char *env[], int size);
   // Intended to be used as part of a SCGI server
   // Reads a netstring from a file, creates an environ
-  // containing the SCGI variables to be passed 
+  // containing the SCGI variables to be passed
   // directly to `execle`
 
 

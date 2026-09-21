@@ -17,7 +17,7 @@ typedef struct _NETSTRING {
   char   *buffer;             // The `buffer` that contains the netstring
   size_t buffer_asize;        // Allocated size of the buffer
   //
-  char   **strings;           // A vector of pointers to the individual 
+  char   **strings;           // A vector of pointers to the individual
                               // strings within the netstring
   size_t strings_asize;       // Allocated size of strings[]
   //
@@ -90,16 +90,21 @@ typedef struct _NETSTRING {
 extern void netstring_set_min_length(size_t num);
 extern void netstring_set_max_length(size_t num);
 extern void netstring_set_max_strings(size_t num);
-
+  // Setter functions to define
+  //  - the miniumal length of all strings within a netstring
+  //  - the maximum length of all strings  within a netstring
+  //  - the maximum number of strings within a netstring
 
 #define NETSTRING_INIT_READ_BRUTE    (0)
 #define NETSTRING_INIT_READ_MIN_SIZE (1)
 #define NETSTRING_INIT_READ_PREAMBLE (2)
 extern void netstring_set_init_read(size_t mode);
+  // Setter functions to alter the algorithm
+  // associated with the initial read of a netstring
 
 
 #define netstring_allocate(count, size)  netstring_start(count, size)
-extern NETSTRING *netstring_start(size_t count, size_t str_size);  
+extern NETSTRING *netstring_start(size_t count, size_t str_size);
   // Allocates space for a NETSTRING data structure
   // for 'count' strings of total size of 'str_size'
   // If either count or size is 0, uses the default value
