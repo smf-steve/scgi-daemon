@@ -41,6 +41,10 @@ static const char * error_msg[] = {
       fprintf(stderr, "%s\n", error_msg[v]); return; }
 
 
+static int read_int(int fd, char *next);
+static int fread_int(char *next, FILE *fp);
+static void build_strings_array(NETSTRING *ns_p, int h_size);
+
 
 static int netstring_init_read_mode = NETSTRING_INIT_READ_MIN_SIZE; 
 extern void netstring_set_init_read(size_t mode) {
@@ -117,7 +121,7 @@ extern void netstring_end(NETSTRING *ns_p) {
   size_t preamble_length;
   char   *preamble_start;
 
-  // Create and prepand the preamble
+  // Create and prepend the preamble
   preamble_length = sprintf(preamble, "%zu:", ns_p-> strings_length);
   preamble_start = ns_p-> strings[0] - preamble_length;
   memcpy(preamble_start, preamble, preamble_length);
@@ -175,7 +179,8 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
 
   if (temp == NULL) {
     // implicitly call netstring_resume
-    fprintf(stderr, "WARNING: netstring: call to netstring_append after netstring_end, implicitly called \"netstring_resume\"\n");
+    fprintf(stderr, "Netstring WARNING:  call to netstring_append after netstring_end\n");
+    fprintf(stderr, "Netstring WARNING:  implicitly calling\"netstring_resume\"\n");
     netstring_resume(ns_p);
   }
   strncpy(temp, str, len);               // Copy the string to the buffer
@@ -194,74 +199,24 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len) {
 }
 
 
+// Writes a netstring to a File or Stream, respectively.
 extern void netstring_write(int fd, NETSTRING *ns_p) {
-  // Writes a netstring to a File or Stream, respectively.
+  if (ns_p-> netstring == NULL) {
+    fprintf(stderr, "Netstring Warning: calling netstring_write print to netstring_end\n");
+    fprintf(stderr, "                   implicitly calling netstring_end\n");
+    netstring_end(ns_p);
+  }  
   write(fd,ns_p-> netstring,ns_p-> netstring_size);
   return;
 }
 extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
-
+  if (ns_p-> netstring == NULL) {
+    fprintf(stderr, "Netstring Warning: calling netstring_fwrite print to netstring_end\n");
+    fprintf(stderr, "                   implicitly calling netstring_end\n");
+    netstring_end(ns_p);
+  }
   fwrite(ns_p-> netstring, sizeof(char), ns_p-> netstring_size, fp);
   return;
-}
-
-
-static int read_int(int fd, char *next) {
-    // reads from the file descriptor (fd)
-    // - a number 
-    // - the next char
-    // returns the next char from the file descriptor
-
-   int  number = 0;
-   char digit;
-
-   read(fd, &digit, 1);
-   while ( digit >= '0' && digit <= '9') {
-     number = number * 10 + ( digit - '0');
-     read(fd, &digit, 1);
-   }
-
-   *next   = digit;
-   return  number;
-}
-
-
-static void build_strings_array(NETSTRING *ns_p, int h_size) {
-  char *start_p, *end_p;    // Walker pointers 
-  int count = 0;             
-
-  start_p = ns_p-> strings[0];
-  end_p   = start_p + h_size;
-  
-  while (start_p < end_p) {
-    next_start(start_p);
-    count ++;
-   ns_p-> strings[count] = start_p;
-  }
-  ns_p-> strings_count = count;
-
-  assert( *end_p == ',');    // We should have the final ',' per the netstring protocol
-  return;
-}
-
-
-static int fread_int(char *next, FILE *fp) {
-    // reads from the file descriptor (fd)
-    // - a number 
-    // - the next char
-    // returns the next char from the file descriptor
-
-   int  number = 0;
-   char digit;
-
-   fread(&digit, 1, 1, fp);
-   while ( digit >= '0' && digit <= '9') {
-     number = number * 10 + ( digit - '0');
-     fread(&digit, 1, 1, fp);
-   }
-
-   *next   = digit;
-   return  number;
 }
 
 
@@ -284,6 +239,13 @@ char *value;
   assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
 
   switch (netstring_init_read_mode) {
+    case NETSTRING_INIT_READ_PREAMBLE:
+      //
+      fprintf(stderr, "Netstring Warning: Use of the `read preamble` mode is not supported with FDs\n");
+      fprintf(stderr, "                   Defaulting to `read brute` mode\n");
+
+      // merge; break;
+
     case NETSTRING_INIT_READ_BRUTE:
       h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
 
@@ -324,10 +286,6 @@ char *value;
 
       break;
 
-    case NETSTRING_INIT_READ_PREAMBLE:
-      assert(TRUE);
-      break;
-
     default:
       assert(TRUE);
       break;
@@ -335,12 +293,12 @@ char *value;
   }
 
   // read the rest of the strings and the EPILOGUE
-  retval = read(fd, next, to_read + 1);               return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
-
-  comma = *(ns_p-> strings[0] + h_size);              return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
+  retval = read(fd, next, to_read + 1);               
+  comma = *(ns_p-> strings[0] + h_size);              
+    return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
+    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
 
   build_strings_array(ns_p, h_size);
-  
   ns_p-> strings_length = h_size;
 
   return;
@@ -410,6 +368,23 @@ char *value;
 //   PREAMBLE:    fscanf("%zu:", size)   -- only doe sprintf
 //     - defualt, requires two reads
 
+static void build_strings_array(NETSTRING *ns_p, int h_size) {
+  char *start_p, *end_p;    // Walker pointers 
+  int count = 0;             
+
+  start_p = ns_p-> strings[0];
+  end_p   = start_p + h_size;
+  
+  while (start_p < end_p) {
+    next_start(start_p);
+    count ++;
+   ns_p-> strings[count] = start_p;
+  }
+  ns_p-> strings_count = count;
+
+  assert( *end_p == ',');    // We should have the final ',' per the netstring protocol
+  return;
+}
 
 
 
@@ -430,19 +405,14 @@ char *value;
 
   assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
 
-  /* Syntax:    P ->    <h_size> ":" <header> "," <body>          */
-  /*                                                              */
-  /*   Read the <h_size> and the ":".                             */
-  /*   Place the header and the "," into the buffer               */
-  /*   Leaves the body on stdin.  */
-
-
   // Read the PREAMBLE
   switch (netstring_init_read_mode) {
 
     case NETSTRING_INIT_READ_BRUTE:
-      h_size = fread_int(&colon, fp);                       return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-                                                            return_error((colon  != ':'), ERROR_MISSING_COLON);
+      h_size = fread_int(&colon, fp);                       
+         return_error(!(h_size >=0), ERROR_INVALID_SIZE);
+         return_error((colon  != ':'), ERROR_MISSING_COLON);
+ 
       next = ns_p-> strings[0];
       to_read = h_size;
       break;
@@ -494,9 +464,11 @@ char *value;
   }
 
   // read the rest of the strings and the EPILOGUE
-  retval = fread(next, sizeof(char), to_read + 1, fp); return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
+  retval = fread(next, sizeof(char), to_read + 1, fp); 
+     return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
 
-  comma = *(ns_p-> strings[0] + h_size);               return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
+  comma = *(ns_p-> strings[0] + h_size);               
+     return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
 
   build_strings_array(ns_p, h_size);
 
@@ -504,3 +476,48 @@ char *value;
 
   return;
 }
+
+
+
+// Support functions to read a int, on char at a time
+// via read and fread.
+static int read_int(int fd, char *next) {
+    // reads from the file descriptor (fd)
+    // - a number 
+    // - the next char
+    // returns the next char from the file descriptor
+
+   int  number = 0;
+   char digit;
+
+   read(fd, &digit, 1);
+   while ( digit >= '0' && digit <= '9') {
+     number = number * 10 + ( digit - '0');
+     read(fd, &digit, 1);
+   }
+
+   *next   = digit;
+   return  number;
+}
+
+
+
+static int fread_int(char *next, FILE *fp) {
+    // reads from the file descriptor (fd)
+    // - a number 
+    // - the next char
+    // returns the next char from the file descriptor
+
+   int  number = 0;
+   char digit;
+
+   fread(&digit, 1, 1, fp);
+   while ( digit >= '0' && digit <= '9') {
+     number = number * 10 + ( digit - '0');
+     fread(&digit, 1, 1, fp);
+   }
+
+   *next   = digit;
+   return  number;
+}
+
