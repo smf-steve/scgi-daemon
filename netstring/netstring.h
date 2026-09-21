@@ -73,11 +73,9 @@ typedef struct _NETSTRING {
 //   netstring_end()
 
 
-
-
 #define NETSTRING_EPILOGUE_MAX (1)
 #define NETSTRING_PREAMBLE_MAX (11)
-
+#define NETSTRING_MIN_READ_BUFFER (3)
 
 #ifndef NETSTRING_MIN_LENGTH_DEFAULT
 #  define NETSTRING_MIN_LENGTH_DEFAULT (0)
@@ -89,10 +87,16 @@ typedef struct _NETSTRING {
 #  define NETSTRING_MAX_STRINGS_DEFAULT (255)
 #endif
 
-#define NETSTRING_MIN_READ_BUFFER (3)
+extern void netstring_set_min_length(size_t num);
+extern void netstring_set_max_length(size_t num);
+extern void netstring_set_max_strings(size_t num);
 
-#define min(a,b) ((a<=b)? a : b)
-#define max(a,b) ((a<=b)? b : a)
+
+#define NETSTRING_INIT_READ_BRUTE    (0)
+#define NETSTRING_INIT_READ_MIN_SIZE (1)
+#define NETSTRING_INIT_READ_PREAMBLE (2)
+extern void netstring_set_init_read(size_t mode);
+
 
 #define netstring_allocate(count, size)  netstring_start(count, size)
 extern NETSTRING *netstring_start(size_t count, size_t str_size);  

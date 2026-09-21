@@ -1,7 +1,11 @@
 #include "netstring.h"
 
+#define TRUE (0)
+#define FALSE (!(TRUE))
+#define min(a,b) ((a<=b)? a : b)
+#define max(a,b) ((a<=b)? b : a)
+
 /* Error Values:                                                      */
-#define ERROR_SUCCESS (0)
 #define ERROR_INVALID_SIZE (1)
 #define ERROR_MISSING_COLON (2)
 #define ERROR_TRUNCATED_STRING (3)
@@ -12,7 +16,7 @@
 /**********************************************************************/
 
 static const char * error_msg[] = {
-  "Netstring Error: SUCCESS (0)",
+  "Netstring: SUCCESS",
   "Netstring Error: INVALID_SIZE (1)",
   "Netstring Error: MISSING_COLON (2)",
   "Netstring Error: TRUNCATED_STRING (3)",
@@ -21,28 +25,49 @@ static const char * error_msg[] = {
 
 };
 
-#define TRUE (0)
-#define FALSE (!(TRUE))
-
-#define INIT_READ_BRUTE    (0)
-#define INIT_READ_MIN_SIZE (1)
-#define INIT_READ_PREAMBLE (2)
-static int init_read_mode =  INIT_READ_MIN_SIZE; 
-
-
-static int netstring_min_length  = NETSTRING_MIN_LENGTH_DEFAULT;
-static int netstring_max_length  = NETSTRING_MAX_LENGTH_DEFAULT;
-static int netstring_max_strings = NETSTRING_MAX_STRINGS_DEFAULT;
-
-
-// if cli value, then update the above values
-// if env value, then update these values
-
-
-
 #define string_size(size)    ( ((size) == 0)?  netstring_max_length : (size)  )
 #define array_size(count)    ( ((count) == 0)? netstring_max_strings : (count) )
 #define buffer_size(size)    ( NETSTRING_PREAMBLE_MAX + size + NETSTRING_EPILOGUE_MAX )
+
+
+/* A simple macro used to walk the pointer p through the buffer,  */
+/* looking for the char immediately following the next NULL char  */
+#define next_start(p) { for(; *p != '\0'; p++); p++; }
+
+/* A simple macro used to test for an error, print the error,     */
+/* and then return a NULL pointer                                 */
+/* Used to make the code more readable                            */
+#define return_error(b,v) if (b) { \
+      fprintf(stderr, "%s\n", error_msg[v]); return; }
+
+
+
+static int netstring_init_read_mode = NETSTRING_INIT_READ_MIN_SIZE; 
+extern void netstring_set_init_read(size_t mode) {
+   assert(mode > 0);
+   assert(mode <= 2);
+   netstring_init_read_mode = mode;
+}
+
+static int netstring_min_length = NETSTRING_MIN_LENGTH_DEFAULT;
+extern void netstring_set_min_length(size_t num) {
+   assert(num > 0);
+   netstring_min_length = num;
+}
+
+static int netstring_max_length = NETSTRING_MAX_LENGTH_DEFAULT;
+extern void netstring_set_max_length(size_t num) {
+   assert(num > 0);
+   return_error((num > NETSTRING_MAX_LENGTH_DEFAULT), ERROR_OTHER);
+
+   netstring_max_length = num;
+}
+
+static int netstring_max_strings = NETSTRING_MAX_STRINGS_DEFAULT;
+extern void netstring_set_max_strings(size_t num) {
+   assert(num > 0);
+   netstring_max_strings = num;
+}
 
 
 
@@ -97,7 +122,7 @@ extern void netstring_end(NETSTRING *ns_p) {
   preamble_start = ns_p-> strings[0] - preamble_length;
   memcpy(preamble_start, preamble, preamble_length);
 
-  // Append the epologue
+  // Append the epilogue
   {
     char *temp = ns_p-> strings[ns_p-> strings_count];
 
@@ -181,18 +206,6 @@ extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 }
 
 
-/* A simple macro used to walk the pointer p through the buffer,  */
-/* looking for the char immediately following the next NULL char  */
-#define next_start(p) { for(; *p != '\0'; p++); p++; }
-
-
-/* A simple macro used to test for an error, print the error,     */
-/* and then return a NULL pointer                                 */
-/* Used to make the code more readable                            */
-#define return_error(b,v) if (b) { \
-      fprintf(stderr, "%s\n", error_msg[v]); return; }
-
-
 static int read_int(int fd, char *next) {
     // reads from the file descriptor (fd)
     // - a number 
@@ -270,15 +283,16 @@ char *value;
 
   assert(NETSTRING_MIN_READ_BUFFER < NETSTRING_PREAMBLE_MAX);
 
-  switch (init_read_mode) {
-    case INIT_READ_BRUTE:
+  switch (netstring_init_read_mode) {
+    case NETSTRING_INIT_READ_BRUTE:
       h_size = read_int(fd, &colon);                        return_error(!(h_size >=0), ERROR_INVALID_SIZE);
 
       next = ns_p-> strings[0];
-      to_read = h_size;                                                          return_error((colon  != ':'), ERROR_MISSING_COLON);
+      to_read = h_size;                                     return_error((colon  != ':'), ERROR_MISSING_COLON);
       break;
 
-    case INIT_READ_MIN_SIZE:
+    case NETSTRING_INIT_READ_MIN_SIZE:
+      *(preamble_buffer + init_buff_size) = '\0';
       read(fd, preamble_buffer, init_buff_size);
 
       // If no ":", read more into the preamble_buffer
@@ -292,7 +306,7 @@ char *value;
       }
 
       h_size = (size_t) strtol(preamble_buffer, &next, 10);
-          return_error( (*next != ':'), ERROR_OTHER);
+          return_error( (*next != ':'), ERROR_MISSING_COLON);
 
       // In the preamble_buffer have ddddd:sssss
       //             preamble_buffer ^    ^
@@ -310,7 +324,7 @@ char *value;
 
       break;
 
-    case INIT_READ_PREAMBLE:
+    case NETSTRING_INIT_READ_PREAMBLE:
       assert(TRUE);
       break;
 
@@ -424,16 +438,17 @@ char *value;
 
 
   // Read the PREAMBLE
-  switch (init_read_mode) {
+  switch (netstring_init_read_mode) {
 
-    case INIT_READ_BRUTE:
+    case NETSTRING_INIT_READ_BRUTE:
       h_size = fread_int(&colon, fp);                       return_error(!(h_size >=0), ERROR_INVALID_SIZE);
                                                             return_error((colon  != ':'), ERROR_MISSING_COLON);
       next = ns_p-> strings[0];
       to_read = h_size;
       break;
 
-    case INIT_READ_MIN_SIZE:
+    case NETSTRING_INIT_READ_MIN_SIZE:
+      *(preamble_buffer + init_buff_size) = '\0';
       fread(preamble_buffer, sizeof(char), init_buff_size, fp);
 
       // If no ":", read more into the preamble_buffer
@@ -449,7 +464,7 @@ char *value;
       }
 
       h_size = (size_t) strtol(preamble_buffer, &next, 10);
-          return_error( (*next != ':'), ERROR_OTHER);
+          return_error( (*next != ':'), ERROR_MISSING_COLON);
 
       // In the preamble_buffer have ddddd:sssss
       //             preamble_buffer ^    ^
@@ -466,7 +481,7 @@ char *value;
       to_read =  h_size - residual;
       break;
 
-    case INIT_READ_PREAMBLE:
+    case NETSTRING_INIT_READ_PREAMBLE:
       fscanf(fp, "%zu:", &h_size);
 
       next = ns_p-> strings[0];
@@ -481,7 +496,7 @@ char *value;
   // read the rest of the strings and the EPILOGUE
   retval = fread(next, sizeof(char), to_read + 1, fp); return_error((retval != to_read + 1), ERROR_TRUNCATED_STRING);
 
-  comma = *(ns_p-> strings[0] + h_size);              return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
+  comma = *(ns_p-> strings[0] + h_size);               return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);    
 
   build_strings_array(ns_p, h_size);
 
