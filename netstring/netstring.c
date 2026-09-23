@@ -114,7 +114,7 @@ extern void netstring_restart(NETSTRING *ns_p) {
 
 extern void netstring_end(NETSTRING *ns_p) {
   // Finalizes data of a netstring
-  // Adds the preamble ( <size> ":" ) and epologue ( ",")
+  // Adds the preamble ( <size> ":" ) and epilogue ( ",")
   // Caps the arrays[] structure  (arrays[n] = NULL)
   // Sets the final value of netstring and netstring_length
 
@@ -226,7 +226,7 @@ extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 // is to support the SCGI protocol.  In this protocol, the
 // contents of the SCGI message include: 
 //   1. a netstring representing a set of CGI variables
-//   2. the body of the HTTP request that was sent to a webserver
+//   2. the body of the HTTP request that was sent to a web-server
 // 
 // The netstring needs to be decoded by a SCGI server and transformed
 // into an `environ`.  The SCGI server than invokes the requisite
@@ -282,7 +282,7 @@ extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 // Approaches
 //   BRUTE:       read one character at a time, until ":"
 //   MIN_SIZE:    fread(string, 1, size, fp) -- size is either 3 or 11 depending on suite
-//                second trigger will need to examine PREABLE_MAX
+//                second trigger will need to examine PREAMBLE_MAX
 //   PREAMBLE:    fscanf("%zu:", size)   -- only doe sprintf
 //     - default, requires two reads
 

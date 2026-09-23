@@ -2,7 +2,7 @@
 /* File: netstring_utility.c                                     */
 /*                                                               */
 /* Purpose:                                                      */
-/*   - To create a command line utility that facilates           */
+/*   - To create a command line utility that facilitate           */
 /*     the encoding and decoding of a netstring.                 */
 /*   - To utilize said tool to perform system testing.           */
 /*                                                               */
@@ -18,7 +18,7 @@
 /*    -d, --decode    : decode a netstring into a sequence of    */
 /*                      text strings ('\n' terminated)           */
 /*                                                               */
-/*    --min-length=n  : set the mininum length of the sequence   */
+/*    --min-length=n  : set the minimum length of the sequence   */
 /*                      of text strings.                         */
 /*                      (DEFAULT: --min-length=0)                */
 /*                                                               */
@@ -26,7 +26,7 @@
 /*                      of text strings.                         */
 /*                      (DEFAULT value: see below)               */
 /*                                                               */
-/*    --max-strings=n : set the maxium number of text strings    */
+/*    --max-strings=n : set the maximum number of text strings    */
 /*                      encoded/decode                           */
 /*                      (DEFAULT value: see below)               */
 /*                                                               */
@@ -44,9 +44,9 @@
 /*                      is not define, it is set to 0xFFFFF.     */
 /*                                                               */
 /* Environment Variables:                                        */
-/*    In liu of the above command-line options, environment      */
+/*    In lie of the above command-line options, environment      */
 /*    variables can be defined to achieve the same effect. If    */
-/*    these variablers are not defined, the default value are:   */  
+/*    these variables are not defined, the default value are:   */  
 /*                                                               */
 /*    NETSTRING_MIN_LENGTH  : 0                                  */
 /*    NETSTRING_MAX_LENGTH  : 65,535  (0xFFFF)                   */
@@ -85,6 +85,11 @@ static  int operation    = NETSTRING_ENCODE;
 static  int io_mechanism = NETSTRING_USE_FILES;
 static  int scgi_mode    = FALSE;
 static  int timing       = 0;
+
+static void usage() {
+   fprintf(stderr, "Invalid command line composition\n");
+   exit(1);
+}
 
 /* COMMAND LINE OPTIONS */
 static char *optstring = "ed";
@@ -130,10 +135,6 @@ static int read_options(int argc, char *argv[]) {
   return optind;
 }
 
-static void usage() {
-   fprintf(stderr, "Invalid command line composition\n");
-   exit(1);
-}
 
 static void set_options_via_envs() {
   char *value;
@@ -244,7 +245,7 @@ int main(int argc, char *argv[], char **envp) {
         str = fgetln(fp_in, &length);
         while (length != 0) {
 
-          // remove the '\n' deliminator
+          // remove the '\n' delimiter
           if (str[length - 1] == '\n') {
              str[length - 1] = '\0';
              length --;
