@@ -5,7 +5,8 @@
 #define min(a,b) ((a<=b)? a : b)
 #define max(a,b) ((a<=b)? b : a)
 
-/* Error Values:                                                      */
+/* Error Values:                                                      */  
+#define SUCCESS 0
 #define ERROR_INVALID_SIZE (1)
 #define ERROR_MISSING_COLON (2)
 #define ERROR_TRUNCATED_STRING (3)
@@ -38,7 +39,7 @@ static const char * error_msg[] = {
 /* and then return a NULL pointer                                 */
 /* Used to make the code more readable                            */
 #define return_error(b,v) if (b) { \
-      fprintf(stderr, "%s\n", error_msg[v]); return; }
+      fprintf(stderr, "%s\n", error_msg[v]); return v; }
 
 
 static int read_int(int fd, char *next);
@@ -48,7 +49,7 @@ static void build_strings_array(NETSTRING *ns_p, int h_size);
 
 static int netstring_init_read_mode = NETSTRING_INIT_READ_MIN_SIZE;
 extern void netstring_set_init_read(size_t mode) {
-   assert(mode > 0);
+   assert(mode >= 0);
    assert(mode <= 2);
    netstring_init_read_mode = mode;
 }
@@ -62,7 +63,7 @@ extern void netstring_set_min_length(size_t num) {
 static int netstring_max_length = NETSTRING_MAX_LENGTH_DEFAULT;
 extern void netstring_set_max_length(size_t num) {
    assert(num > 0);
-   return_error((num > NETSTRING_MAX_LENGTH_DEFAULT), ERROR_OTHER);
+   assert(num < NETSTRING_MAX_LENGTH_DEFAULT);
 
    netstring_max_length = num;
 }
@@ -287,7 +288,7 @@ extern void netstring_fwrite(NETSTRING *ns_p, FILE *fp){
 
 
 // Reads a netstring from the given file descriptor
-extern void netstring_read(int fd, NETSTRING *ns_p) {
+extern int netstring_read(int fd, NETSTRING *ns_p) {
   size_t h_size;         // values from the preamble
   char   colon  = '\0';  // values from the preamble
   char   comma  = '\0';  // values from the preamble
@@ -370,13 +371,13 @@ extern void netstring_read(int fd, NETSTRING *ns_p) {
   build_strings_array(ns_p, h_size);
   ns_p-> strings_length = h_size;
 
-  return;
+  return SUCCESS;
 }
 
 
 // netstring_fread mimics netstring_read
 // Reads a netstring from the given STREAM
-extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
+extern int netstring_fread(NETSTRING *ns_p, FILE *fp) {
   size_t h_size;         // values from the preamble
   char   colon  = '\0';  // values from the preamble
   char   comma  = '\0';  // values from the preamble
@@ -454,7 +455,7 @@ extern void netstring_fread(NETSTRING *ns_p, FILE *fp) {
   build_strings_array(ns_p, h_size);
   ns_p-> strings_length = h_size;
 
-  return;
+  return SUCCESS;
 }
 
 
