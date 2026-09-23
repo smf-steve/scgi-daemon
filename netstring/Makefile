@@ -1,4 +1,4 @@
-TARGETS=netstring scgi_netstring netstring.a
+TARGETS=netstring libscgi_netstring.a libnetstring.a
 CFLAGS=-g
 STH_DIR=sth
 TEST_CASES=cgi_env large one two three four five six seven eight nine
@@ -18,11 +18,8 @@ test:
 	done
 
 
-netstring: libnetstring.a netstring_utility.o
-	$(CC) -o $@ netstring_utility.o -L . -lnetstring
-
-scgi_netstring: libscgi_netstring.a netstring_utility.o
-	$(CC) -o $@ -DSCGI_ENCODING netstring_utility.o -L . -lscgi_netstring
+netstring: libscgi_netstring.a netstring_utility.o
+	$(CC) -o $@ netstring_utility.o -L . -lscgi_netstring
 
 netstring_utility.o: netstring_utility.c
 
@@ -37,8 +34,6 @@ netstring.o: netstring.h netstring.c
 scgi_netstring.o: scgi_netstring.h scgi_netstring.c
 
 netstring_utility.o: netstring.h netstring_utility.c
-scgi_netstring_utility.o: scgi_netstring.h scgi_netstring.c
-
 
 clean:
 	$(RM) *.o 
