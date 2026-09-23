@@ -4,48 +4,49 @@
 /* Purpose:                                                      */
 /*   - To create a command line utility that facilates           */
 /*     the encoding and decoding of a netstring.                 */
-/*   - Doubles as the 'scgi_netstring' utility when              */
-/*     when compiled with `-DSCGI_ENCODING`                      */
 /*   - To utilize said tool to perform system testing.           */
 /*                                                               */
 /* Usage:                                                        */
-/*   netstring [-e] [options] < env_file  > netstring            */
-/*   netstring [-d] [options] < netstring > env_file             */
+/*   netstring [-e] [options] [[env_file] [netstring]]           */
+/*   netstring [-d] [options] [[netstring] [env_file]]           */
 /*                                                               */
-/*   scgi_netstring [-e] [options]  < env_file  > netstring      */
-/*   scgi_netstring [-d] [options]  < netstring > env_file       */
 /*                                                               */
 /* Options:                                                      */
 /*    -e, --encode    : encode a sequence of text strings ('\n'  */
-/*                      terminated) into a netstring. DEFAULT    */
+/*                      terminated) into a netstring. (DEFAULT)  */
 /*                                                               */
 /*    -d, --decode    : decode a netstring into a sequence of    */
 /*                      text strings ('\n' terminated)           */
 /*                                                               */
 /*    --min-length=n  : set the mininum length of the sequence   */
 /*                      of text strings.                         */
-/*                      (default: --min-length=NS_MIN_LENGTH     */
+/*                      (DEFAULT: --min-length=0)                */
 /*                                                               */
 /*    --max-length=n  : set the maximum length of the sequence   */
 /*                      of text strings.                         */
-/*                      (default value: see below)               */
+/*                      (DEFAULT value: see below)               */
 /*                                                               */
 /*    --max-strings=n : set the maxium number of text strings    */
 /*                      encoded/decode                           */
-/*                      (default value: see below)               */
+/*                      (DEFAULT value: see below)               */
 /*                                                               */
-/*    --use-file      : use file descriptors (int fd) for I/O    */
-/*                      DEFAULT                                  */
+/*    --use-files     : use file descriptors (int fd) for I/O    */
+/*                      (DEFAULT)                                */
 /*                                                               */
-/*    --use-stream    : use streams (FILE *fp) for I/O           */
+/*    --use-streams   : use streams (FILE *fp) for I/O           */
 /*                                                               */
 /*    --scgi          : validate that netstring conforms to      */
 /*                      the SCGI protocol                        */
+/*                      sets --min-string-length=11              */ 
+/*                                                               */
+/*    --timing[=n]    : runs netstring_{f}read `n` times to      */
+/*                      support performance timing.  If `n`      */
+/*                      is not define, it is set to 0xFFFFF.     */
 /*                                                               */
 /* Environment Variables:                                        */
 /*    In liu of the above command-line options, environment      */
 /*    variables can be defined to achieve the same effect. If    */
-/*    hese variablers are not defined, the default value are:    */  
+/*    these variablers are not defined, the default value are:   */  
 /*                                                               */
 /*    NETSTRING_MIN_LENGTH  : 0                                  */
 /*    NETSTRING_MAX_LENGTH  : 65,535  (0xFFFF)                   */
@@ -54,13 +55,21 @@
 /*    NETSTRING_USE_STREAMS : undefined (overrides USE_FILES)    */
 /*    NETSTRING_FOR_SCGI    : undefined                          */
 /*                                                               */
+/*    In additional to the command line args options, the        */
+/*    following environment variables can be used to change      */
+/*    the way the netstring code handles the initial read        */
+/*    of a netstring.  These variables exist mostly to affect    */
+/*    the performance of the netstring library.                  */
+/*                                                               */
+/*    NETSTRING_INIT_READ_PREAMBLE : undefined                   */
+/*    NETSTRING_INIT_READ_BRUTE    : undefined                   */
+/*    NETSTRING_INIT_READ_MIN_SIZE : defined (DEFAULT)           */
+/*                                                               */
 /*****************************************************************/
 
-#ifndef SCGI_ENCODING
-#  include "netstring.h"
-#else
-#  include "scgi_netstring.h"
-#endif
+#include "scgi_netstring.h"
+#include <stdlib.h>
+#include <getopt.h>
 
 #define TRUE  (0)
 #define FALSE (!TRUE)
@@ -69,32 +78,159 @@
 #define NETSTRING_DECODE (1)
 #define NETSTRING_ERROR  (3)
 
-#define NETSTRING_USE_FDS     (0)
+#define NETSTRING_USE_FILES   (0)
 #define NETSTRING_USE_STREAMS (1)
-// By default program uses file descriptors
+
+static  int operation    = NETSTRING_ENCODE;
+static  int io_mechanism = NETSTRING_USE_FILES;
+static  int scgi_mode    = FALSE;
+static  int timing       = 0;
+
+/* COMMAND LINE OPTIONS */
+static char *optstring = "ed";
+static struct option longopts[] = {
+  { "encode",      no_argument,        NULL,    'e' },
+  { "decode",      no_argument,        NULL,    'd' },
+  { "min-length",  required_argument,  NULL,    'm' },
+  { "max-length",  required_argument,  NULL,    'M' },
+  { "max-strings", required_argument,  NULL,    'a' },
+  { "use-files",   no_argument,        NULL,    'f' },
+  { "use-streams", no_argument,        NULL,    's' },
+  { "scgi",        no_argument,        NULL,    'S' },
+  { "timing",      optional_argument,  NULL,    't' },
+  { NULL,          0,                  NULL,      0 }
+};
+
+static int read_options(int argc, char *argv[]) {
+  char ch;  // Flag for command line option
+  while ((ch = getopt_long(argc, argv, "ed", longopts, NULL)) != -1) {
+    switch (ch) {
+      case 'e' : // --encode
+        operation = NETSTRING_ENCODE; break;
+      case 'd' : // --decode
+        operation = NETSTRING_DECODE; break;        
+      case 'm' : // --min-length
+        netstring_set_min_length(atoi(optarg)); break;
+      case 'M' : // --max-length
+        netstring_set_max_length(atoi(optarg)); break;
+      case 'a' : // --max-strings <- array
+        netstring_set_max_strings(atoi(optarg)); break;
+      case 'f' : // --use-files
+        io_mechanism = NETSTRING_USE_FILES; break;
+      case 's' : // --use-streams
+        io_mechanism = NETSTRING_USE_STREAMS; break;
+      case 'S' : // --scgi
+        scgi_mode=TRUE; break;
+      case 't' : // --timing
+        timing = (optarg == NULL) ? 0xFFFFF : atoi(optarg); break;
+      default:
+        usage();
+    }
+  }
+  return optind;
+}
+
+static void usage() {
+   fprintf(stderr, "Invalid command line composition\n");
+   exit(1);
+}
+
+static void set_options_via_envs() {
+  char *value;
+  value = getenv("NETSTRING_MIN_LENGTH");
+  if (value != NULL) {
+    netstring_set_min_length(atoi(value));
+  }
+  value = getenv("NETSTRING_MAX_LENGTH");
+  if (value != NULL) {
+    netstring_set_max_length(atoi(value));
+  }
+  value = getenv("NETSTRING_MAX_STRINGS");
+  if (value != NULL) {
+    netstring_set_max_strings(atoi(value));
+  }
+  value = getenv("NETSTRING_USE_FILES");
+  if (value != NULL) {
+    io_mechanism = NETSTRING_USE_FILES;
+  }
+  value = getenv("NETSTRING_USE_STREAMS");
+  if (value != NULL) {
+    io_mechanism = NETSTRING_USE_STREAMS;
+  }
+
+  value = getenv("NETSTRING_USE_SCGI");
+  if (value != NULL) {
+    netstring_set_max_strings(NETSTRING_PREAMBLE_MAX);
+    scgi_mode = TRUE;
+  }
+}
+
+static void set_init_read_mode(){
+  char *value;
+
+  value = getenv("NETSTRING_INIT_READ_PREAMBLE");
+  if (value != NULL) {
+    netstring_set_init_read(NETSTRING_INIT_READ_PREAMBLE);
+  }
+  value = getenv("NETSTRING_INIT_READ_BRUTE");
+  if (value != NULL) {
+    netstring_set_init_read(NETSTRING_INIT_READ_BRUTE);
+  }
+  value = getenv("NETSTRING_INIT_READ_MIN_SIZE");
+  if (value != NULL) {
+    netstring_set_init_read(NETSTRING_INIT_READ_MIN_SIZE);
+  }
+
+  return;
+}
 
 
 int main(int argc, char *argv[], char **envp) {
 
-  // DEFAULT operations of the program
-  int operation    = NETSTRING_ENCODE;
-  int io_mechanism = NETSTRING_USE_FDS;
+  int retval;
 
-  char *mode;
-  mode = getenv("NETSTRING_INIT_READ_MODE");
-  if (mode != NULL) {
-    netstring_set_init_read(atoi(mode));
+  int fd_in    = STDIN_FILENO;
+  FILE *fp_in  = stdin;
+
+  int fd_out   = STDOUT_FILENO;
+  FILE *fp_out = stdout;
+
+
+  // Set Options via ENVs
+  set_options_via_envs();
+  set_init_read_mode();
+
+  // Read Command Line Options:
+  int num_options = read_options(argc, argv);
+  argc -= num_options;
+  argv += num_options;
+
+  // Handle FILE Names
+  switch (argc) {
+    case 2:
+      fp_out = fopen(argv[1], "w");
+      if (fp_out == NULL) {
+        fprintf(stderr, "Invalid file for output \"%s\"", argv[1]);
+      }
+      fd_out = fileno(fp_out);
+      // merge;
+
+    case 1:
+      fp_in = fopen(argv[0], "r");
+      if (fp_out == NULL) {
+        fprintf(stderr, "Invalid file for input \"%s\"", argv[1]);
+      }
+
+      fd_in = fileno(fp_in);
+      break;
+
+    case 0:
+       break;
+
+    default:
+      usage();
+
   }
-
-  if (argc > 1) {
-    if (strcmp(argv[1], "-e") == 0 ) {
-       operation = NETSTRING_ENCODE;
-     } else if (strcmp(argv[1], "-d") == 0 ) {
-       operation = NETSTRING_DECODE;
-     } else {
-       operation = NETSTRING_ERROR;
-     }
-   }
 
   switch (operation) {
     case NETSTRING_ENCODE:
@@ -105,7 +241,7 @@ int main(int argc, char *argv[], char **envp) {
 
         ns_p = netstring_start(0,0);
 
-        str = fgetln(stdin, &length);
+        str = fgetln(fp_in, &length);
         while (length != 0) {
 
           // remove the '\n' deliminator
@@ -115,15 +251,15 @@ int main(int argc, char *argv[], char **envp) {
           } 
 
           netstring_append(ns_p, str, length);
-          str = fgetln(stdin, &length);
+          str = fgetln(fp_in, &length);
         }
 
         netstring_end(ns_p);
 
         if (io_mechanism == NETSTRING_USE_STREAMS) {
-          netstring_fwrite(ns_p, stdout); // Using layer 3 for I/O
+          netstring_fwrite(ns_p, fp_out); // Using layer 3 for I/O
         } else {
-          netstring_write(STDOUT_FILENO, ns_p);  // Using layer 2 for I/O
+          netstring_write(fd_out, ns_p);  // Using layer 2 for I/O
         }
 
         netstring_free(ns_p);
@@ -139,9 +275,18 @@ int main(int argc, char *argv[], char **envp) {
         ns_p = netstring_allocate(0,0);
 
         if (io_mechanism == NETSTRING_USE_STREAMS) {
-          netstring_fread(ns_p, stdin);        // Using layer 3 for I/O
+          for (int i=0; i <= timing ; i++) {
+            if (i != 0) { rewind(fp_in); }
+            retval = netstring_fread(ns_p, fp_in);
+          }
         } else {
-          netstring_read(STDIN_FILENO, ns_p);  // Using layer 2 for I/O
+          for (int i=0; i <= timing ; i++) {
+            if (timing != 0 ) { lseek(fd_in, 0,  SEEK_SET); }
+            retval = netstring_read(fd_in, ns_p);
+          }
+        }
+        if (retval != 0) {
+          exit(retval);
         }
         netstring_end(ns_p);
 
@@ -149,17 +294,18 @@ int main(int argc, char *argv[], char **envp) {
         strings = ns_p->strings;          // need an netstring access method
         //netstring_get_strings(ns_p);
 
-#ifdef SCGI_ENCODING
-        ret_val = scgi_netstring_validate(ns_p);  // ensures the netstring conforms to the scgi protocol
-        if (ret_val != 0) {
-          exit(ret_val);
+
+        if (scgi_mode == TRUE) {
+          retval = scgi_netstring_validate(ns_p);  // ensures the netstring conforms to the scgi protocol
+          if (retval != 0) {
+            exit(retval);
+          }
+
+          strings = scgi_netstring2env(ns_p);     // collapse (name, value) pairs into name=value strings
         }
 
-        strings = scgi_netstring2env(ns_p);     // collapse (name, value) pairs into name=value strings
-#endif
-
         for(int count=0; strings[count] != NULL; count++) {
-           fprintf(stdout, "%s\n", strings[count]);
+           fprintf(fp_out, "%s\n", strings[count]);
         }
 
         netstring_free(ns_p);
