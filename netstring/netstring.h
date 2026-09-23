@@ -134,10 +134,11 @@ extern size_t netstring_append(NETSTRING *ns_p, char *str, size_t len);
   // if 'len' is zero, the length of the string is computed
 
 
-extern void netstring_read(int fd, NETSTRING *ns_p);
-extern void netstring_fread(NETSTRING *ns_p, FILE *fp);
+extern int netstring_read(int fd, NETSTRING *ns_p);
+extern int netstring_fread(NETSTRING *ns_p, FILE *fp);
   // Reads a netstring from a File or Stream, respectively.
   // Updates the NETSTRING data structure
+  // Returns a non-zero on an error
 
 
 extern void netstring_write(int fd, NETSTRING *ns_p);
