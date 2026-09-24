@@ -1,11 +1,9 @@
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+
+#define NETSTRING_INVALID_SIZE (1)
+#define NETSTRING_MISSING_COLON (2)
+#define NETSTRING_TRUNCATED_STRING (3)
+#define NETSTRING_MISSING_TRAILING_COMMA (4)
 
 typedef struct _NETSTRING {
   char   *netstring;          // NULL until fully defined

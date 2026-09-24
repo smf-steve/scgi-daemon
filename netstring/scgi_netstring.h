@@ -1,5 +1,12 @@
 #include "netstring.h"
 
+// The Following Definitions exted the definitions in "netstring.h"
+#define SCGI_PROTOCOL_ERROR (5)
+#define SCGI_MISSING_CONTENT_LENGTH (6)
+#define SCGI_EMPTY_CONTENT_LENGTH (7)
+#define SCGI_INVALID_VERSION (8)
+#define SCGI_DUPLICATE_ENVS (9)
+#define SCGI_TOO_MANY_ENVS (10)
 
 extern int scgi_netstring_validate(NETSTRING *ns_p);
   // Review contents of the netstring to
@@ -38,4 +45,5 @@ extern int scgi_read2env(int fd, char *env[], int size);
   // directly to `execle`
 
 
+#define scgi_free_env_buffer(env)  free(env[0])
 
