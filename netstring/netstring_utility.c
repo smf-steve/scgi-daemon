@@ -1,3 +1,12 @@
+#include "scgi_netstring.h"
+
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <assert.h>
+
+
 /*****************************************************************/
 /* File: netstring_utility.c                                     */
 /*                                                               */
@@ -67,9 +76,7 @@
 /*                                                               */
 /*****************************************************************/
 
-#include "scgi_netstring.h"
-#include <stdlib.h>
-#include <getopt.h>
+
 
 #define TRUE  (0)
 #define FALSE (!TRUE)
