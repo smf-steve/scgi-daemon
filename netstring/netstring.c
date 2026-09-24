@@ -1,20 +1,17 @@
 #include "netstring.h"
 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#define SUCCESS (0)
 #define TRUE (0)
 #define FALSE (!(TRUE))
 #define min(a,b) ((a<=b)? a : b)
 #define max(a,b) ((a<=b)? b : a)
 
-/* Error Values:                                                      */  
-#define SUCCESS 0
-#define ERROR_INVALID_SIZE (1)
-#define ERROR_MISSING_COLON (2)
-#define ERROR_TRUNCATED_STRING (3)
-#define ERROR_MISSING_TRAILING_COMMA (4)
-#define ERROR_OTHER (5)
-
-/*                                                                    */
-/**********************************************************************/
 
 static const char * error_msg[] = {
   "Netstring: SUCCESS",
@@ -22,8 +19,6 @@ static const char * error_msg[] = {
   "Netstring Error: MISSING_COLON (2)",
   "Netstring Error: TRUNCATED_STRING (3)",
   "Netstring Error: MISSING_TRAILING_COMMA (4)",
-  "Netstring Error: OTHER (5)"
-
 };
 
 #define string_size(size)    ( ((size) == 0)?  netstring_max_length : (size)  )
@@ -311,8 +306,8 @@ extern int netstring_read(int fd, NETSTRING *ns_p) {
 
     case NETSTRING_INIT_READ_BRUTE:
       h_size = read_int(fd, &colon);
-        return_error(!(h_size >=0),   ERROR_INVALID_SIZE);
-        return_error((colon  != ':'), ERROR_MISSING_COLON);
+        return_error(!(h_size >=0),   NETSTRING_INVALID_SIZE);
+        return_error((colon  != ':'), NETSTRING_MISSING_COLON);
 
       next_p = ns_p-> strings[0];
       to_read = h_size;
@@ -339,7 +334,7 @@ extern int netstring_read(int fd, NETSTRING *ns_p) {
         }
 
         h_size = (size_t) strtol(preamble_buffer, &next_p, 10);
-          return_error( (*next_p != ':'), ERROR_MISSING_COLON);
+          return_error( (*next_p != ':'), NETSTRING_MISSING_COLON);
 
         // In the preamble_buffer have ddddd:sssss
         //             preamble_buffer ^    ^
@@ -365,8 +360,8 @@ extern int netstring_read(int fd, NETSTRING *ns_p) {
   // read the rest of the strings and the EPILOGUE
   read_chars = read(fd, next_p, to_read + 1);
   comma  = *(ns_p-> strings[0] + h_size);
-    return_error((read_chars != to_read + 1), ERROR_TRUNCATED_STRING);
-    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);
+    return_error((read_chars != to_read + 1), NETSTRING_TRUNCATED_STRING);
+    return_error((comma != ','), NETSTRING_MISSING_TRAILING_COMMA);
 
   build_strings_array(ns_p, h_size);
   ns_p-> strings_length = h_size;
@@ -401,8 +396,8 @@ extern int netstring_fread(NETSTRING *ns_p, FILE *fp) {
 
     case NETSTRING_INIT_READ_BRUTE:
       h_size = fread_int(&colon, fp);
-         return_error(!(h_size >=0), ERROR_INVALID_SIZE);
-         return_error((colon  != ':'), ERROR_MISSING_COLON);
+         return_error(!(h_size >=0), NETSTRING_INVALID_SIZE);
+         return_error((colon  != ':'), NETSTRING_MISSING_COLON);
 
       next_p = ns_p-> strings[0];
       to_read = h_size;
@@ -429,7 +424,7 @@ extern int netstring_fread(NETSTRING *ns_p, FILE *fp) {
         }
 
         h_size = (size_t) strtol(preamble_buffer, &next_p, 10);
-          return_error( (*next_p != ':'), ERROR_MISSING_COLON);
+          return_error( (*next_p != ':'), NETSTRING_MISSING_COLON);
 
         residual =  init_read_size - (next_p - preamble_buffer + 1);
 
@@ -449,8 +444,8 @@ extern int netstring_fread(NETSTRING *ns_p, FILE *fp) {
   // read the rest of the strings and the EPILOGUE
   read_chars = fread(next_p, sizeof(char), to_read + 1, fp);
   comma  = *(ns_p-> strings[0] + h_size);
-    return_error((read_chars != to_read + 1), ERROR_TRUNCATED_STRING);
-    return_error((comma != ','), ERROR_MISSING_TRAILING_COMMA);
+    return_error((read_chars != to_read + 1), NETSTRING_TRUNCATED_STRING);
+    return_error((comma != ','), NETSTRING_MISSING_TRAILING_COMMA);
 
   build_strings_array(ns_p, h_size);
   ns_p-> strings_length = h_size;
