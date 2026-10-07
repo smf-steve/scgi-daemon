@@ -1,6 +1,21 @@
 # Project Name: scgi-daemon
 
-## Quick Note: This repository is under current refactoring. 
+## Quick Note: This repository is under current refactoring.
+
+## Current Status:
+   1. revamp the netstring implementation
+      - that supports scgi-compliant netstring
+      - to create a standalone netstring utility
+      - to create a netstring C library 
+
+   1. develop the scgi-server using the accept-fork model
+      - general functionality works
+      - implementation on command line arguments, to be used by all four models is underway 
+      - current re-musing about command line argumet process and implement some of the thoughts from https://github.com/smf-steve/cli-processing
+
+   1. refactor the `scgi-launch` utility (on hold)
+      - to use the specialize
+
 
 ## Description (upon completion):
 This repository contains an implementation of a SCGI server designed to work with a pool of pre-forked child processes.  The purpose of the pre-forked processes is to reduce the (observable) time necessary to to execute a CGI program.  In total, having a dedicated SCGI server allows for the following benefits:
@@ -39,11 +54,13 @@ The four implementation are designed to incrementally improve performance over e
 
 ## Note:
 
-This project was developed as part of a larger project to study the various ways to generate dynamic content within a web environment. The overall goal of this study is to determine the best way:
+This project was originally developed as part of a larger project to study the various ways to generate dynamic content within a web environment by students. The overall goal of this study was to determine the best way:
 
-  * to provide maximum flexibility to fledgling developers as they develop various web applications
+  * to provide maximum flexibility to fledgling developers as they develop various web applications, while reducing the overhead associated with maintaining there own web environments
+
   * to eliminate interdependence between these developers and the administrators of the web environment
-  * to increase the level of security by the use of containers.
+
+  * to increase the level of security around by the use of containers.
 
 It was envisioned that each student would develop, maintain, and/or use an independent SCGI server for their work. Each of these students would be assigned a dedicated end-point for their SCGI server; that is to say, they would be assigned a port for the SCGI server. The assigned port would be associated with a docker container that they also maintained.
 
