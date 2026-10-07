@@ -20,20 +20,6 @@
 #define  o_WORKERS   (13)
 
 
-// Option variables that hold the "final" option information
-FILE * config_file;
-int    server_ip;
-char * document_root;
-FILE * error_log;
-int    foreground_flag;
-int    port;
-char * scriptname;
-char * socket_file;
-char * user;
-int    verbose_flag;
-int    workers;
-int    help_flag;
-int    version_flag;
 
 static option_t options_list[] = {
   ///           index,        longName,     shortName, envName,             argType
@@ -115,70 +101,21 @@ void print_usage() {
 }
 
 
-static int configure_options(int argc, char *argv[]) {
 
-  char ch;  // Flag for command line option
-
-  setoption_options(handle, initVal, defaultVal, duplicative);
-
-
-  // Define HOME
-  env_p = getenv( namespace("HOME");
-  strlcpy(home, env_p, size);
-
-  if (home == NULL) {
-    env_p = getenv("HOME")
-    strlcpy(home, envp, size);
-    strcat(home,"/.scgi", size);
-  }
-
-  ////////////////////////////////////////
-  // Normalize the command line options
-  //   1. expand all condense options
-  //   1. autocomplete all longform options
-  //   1. merge all options with there values
-  //   1. insert -- after all options
-  //   1. place option in order
-  //      - update the usage count
-  //      - print usage on error
-  //
-  // o::
-  //   -o,       -o"",   -ovalue, -o value
-  //   -o,       -o,     -ovalue, -o value  -- but seen via bash
-  //   NULL      NULL    "value"  "value"
-
-  // option optional_argument
-  //   --option, --option=, --option=value,
-  //   NULL      ""         "value"
-  //   NULL      NULL       "value"         --but viewed via bash
-
-  // Special Cases of no Arguments
-  if (argc == 0 ) {
-    strlcpy(conf_file, home, size);
-    strlcat(conf_file, "conf");
-    source_conf_file(conf_file); 
-    return 0;
-  }
-
-  // scgi [options] [ --port=<number> | --socket=<filename> ] [ exec ]
-  // scgi --conf=file
-  // scgi [--version] [--help] ]
+static int configure_options(int *argc_p, char *argv[]) {
+  int  option_id;   // the index...
 
   // Set any special conditions on command-line options
+  setoption_options(handle, initVal, defaultVal, duplicative);
 
-
-  // Here I am assuming the command line has already been normalized
-  while (index = scanopt_nextop(argc, argv, option_list, option)) != -1) {
-    switch (index) {
+  while (option_id = scanopt_nextop(argc_p, argv, option_list, option)) != -1) {
+    switch (option_id) {
 
       case o_CONF:
-        config_file = fopen(option.value, "r");
-        if (config_file == NULL) {
-          perror("Unable to open config file: %s\n", option.longName);
-          exit(1)
-        }
-        break;
-
+         // See above, This option is handled as a special case
+         fprintf(stderr, "--config must be the only command line option\n");
+         exit(1);
+         break;
 
       ///////////////////////////////////////////////////
       //  Script Related Options
@@ -311,31 +248,21 @@ static int configure_options(int argc, char *argv[]) {
 
       default:
         // error
-        usage();
+        print_usage();
+        exit(1);
     }
   }
 
   if (version_flag || help_flag) {
     if (version_flag) print_version();
-    if (help_flag) print_version();
-    return 0;
-  }
-  
-  // Also performs a sanity check on the item list
-  // O_CONF: must be the only one
-  if (config_file != NULL) {
-    if (argc != 2) {
-      fprintf(stderr, "--config must be the only command line option\n");
-    }
-  }
-  // O_PORT: socket must not be defined
-  if (port != 0)
-
-  // O_SOCKET: port and server IP not defined
-  if (socket_file != NULL) {
-    if (port != 0)
+    if (help_flag) print_usage();
+    exit(0);
   }
 
-  return 0;
+
+  return optind;  //(the next optind to process)
+                  // this should be "[ exec ]"
 }
+
+
 
