@@ -1,18 +1,23 @@
 // Name:  scanopt:  short for scan options
 //        switchscan
-// Nomenclature:
-//    switch
-//    flag, banner
-//    
-
 
 
 /*
-Major difference is our versions popt..
+Major difference is our versions popt/getopt..
   - we don't try to keep the return value as the shortName char
-    - we return the INDEX value which is more flexible
+    - we return an INDEX value to a structure
   - we don't try to store info into a varialbe
     - we allow/require the user to put the process value there...
+  - option types include: required, option, none (as usually)
+  - argument types include:  text, int, long, float, & double
+  - argument types include the ability to deal with duplicates
+    - supports the http approach of -c & -C
+  - we have alias/synonmyses
+  - we have opposites:  e.g., --force, --inquire
+  - we define default values
+  - we incorporate Env Variable into the process
+
+  - we internally normalize the argv structure different
 */
 
 
@@ -21,217 +26,351 @@ Major difference is our versions popt..
 //          but this also allows simplier control per user
 
 
-// Issues to handle
 
-//  How to deal with duplicates
-//  Argument type, which includes optional
+///// NOTES Above
 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <getopt.h>
+#include <limits.h>
+#include <assert.h>
 
-/*
-//use cases
-
-// initial value AND Default value;
---debug[=n]   -- set the debug level to n, otherwise set it to 1.
-              -- set value to "0", set default to "1"
-
-// from htpd
-O_APPEND_DUPLICATE           
--C directive // before reading config
--f config    // Example here is httpd
--c directive // after reading config
-
-// Opposities
-How do deal with opposites.
-
-We could add a flag variable  to allow opsites,  witch is what speed is belows
-  e.g., -i and -f are opposites
-from popt
-
-{ "interactive", 'i', POPT_ARG_VAL, &speed, 0,  // default
-{ "force",       'f', POPT_ARG_VAL, &speed, 1,
-
-// Alais
-
-OPTION_ALIAS(o_SOCKET, "", "", '');
-
-{  o_SOCKET,  "", "socket", 's', OPT_REQUIRED}   
-{- o_SOCKET,  "", "uds",    '',  OPT_REQUIRED}
-  -- ignore the - index extra values, [ensure they are not set ?]
-  -- the arg type must be the same: e.g., OPT_REQUIRED
-  -- 
+#include <sys/types.h>
+#include <pwd.h>
+#include <uuid/uuid.h>
+#include <alloca.h>
+#include <stdbool.h>
 
 
 
-// Opposites
-{   o_FORCE,  "", "interactive", 'i', OPT_SET,    // Primary
-{ - o_FORCE,  "", "force",       'f', OPT_UNSET,
-  // used to support opposite
-  // OPT_SET causes the primary.value to be a "1"
-  // OPT_UNSET causes the primary.value to be a "0"
+#include "scanopt.h"
 
-OPTION_OPPOSITE(o_FORCE, "SCGI_FORCE", OP_SET,   "", '',  \\
-                                       OP_UNSET, "", '' )
-  // ONLY ONE can have an ENV
-  SCGI_FORCE=set
-  SCGI_FORCE=unset
-  SCGI_FORCE=   // akin to =set
-*/
+opt_value_t opt_value;
+
+// To implement:
 
 
+extern void  scanopt_add_description(option_t item, char *descript, char *format);
+extern void  scanopt_add_environment(option_t item, char *envName);
+extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
+extern void  scanopt_add_variables(option_t item, void *variable);
+extern void  scanop_opt_add_type(option_t item, int type);
 
-
-/* Conversion thoughts
-    // don't use reg expressions, to compilicated, etc. for one option
-    // ip address:  "%d.%d.%d.%d"
-    // count = sscanf(str_val, "%d.%d.%d.%d%c", &a, &b, &c, &d, extra);
-    // where count == 4
-    // would need to use vsscanf after building the valist appropriately
-    //
-    // above example shows why it might be more work than its work (mwtiw)
-    // just support the basic types of the langue
-
-int variable = convert(&var, o_BIND, option_t *option_list);
-    // convert :==
-    //    option_t *item;
-    //    int count;
-    //    item = find_option(O_BIND, option_list);
-    //    str_value = item.value;
-    //    switch (item.ARG_TYPE) {
-    //        case OPT_ARG_INT:  
-    //           count = sscanf(item.value, "%d%c", (void *) var, extra);
-    //           if (count != 1)  error
-    //           return 
-    //        ...
-
-popt and getop can do the conversions because it is ONLY for ints
-
-*/
-
-
-// APIs associated with option definition and translation
-
-char *opt_list scanopt_switchNew(int index, char *envName, char *longName, char shortName, int argType);
-void scanopt_add_switchOptions(char *opt_list handle, char *initVal, char *defaultVal, int limit, int onDuplicate);
-void scanopt_add_switchDescription(char *opt_list handle, char *description, char *argDescript);
-
-static char **  normalize_commandline(int argc,  char *argv[]);
-   // returns an argv like structure but with the condition
-   // that all strins are lined up
-   // you can convert to a string by replacing all \0 with ' ';
-   // note the corresponding argc of the new structure will need to 
-   // be computed
-
-   // modifies the command line to
-   //  - separate single letter options 
-   //    *  -ltc<blah> ==>   -l -t -c<blah>
-   //  - expand single letter options to equivalent long forms
-   //    * -d --> --debug
-   //  - connect required values
-   //    *  --require <blah> ==>  --require=<blah>
-   //  - connect options values when they exist
-   //    *  --optional <blah>  ==> --optional=<blah>
-   //  - dont'connect options values when they don't exist
-   //    *  --optional <blah>  ==> --optional <blah>
-
-// should we consider if this is done by the shell
-// i.e., turn this into a utilty
-// how would parsing be handled
-//    1. get opts would work
-//    1. loop to detect option would be
-
-// ```bash
-// case (option) {
-//    long_arg=${option/#--*=/}
-//    short_arg=${option/#-?/}
-//   case --banner=* )
-//      break;
-// 
-//   case -l* )
-//      break;
-// 
-// 
-// }
-// ```
-
-
-static int inititalize(option_t *option_list[]);
-  // update opt_list with any global settings
-  //    set the initial value -- not needed??
-
-static sanity_check(option_t *option_list[]);
-   // index is unique with option_list
-   // only one positive INDEX
-   // check for opposistes OPT_SET, OPT_UNSET, no other records
-
-static int load_env(option_t *option_list[]);
-  // for each with "envName"
-  //   case
-  //      required_multiple: copy arg to value
-  //      required:          copy arg     to value
-  //      optional_present:  copy arg     to value
-  //      optional_missing:  copy default to value
-  //      none:              nothing
-  //   increment usageCount
-
-
-static int walk_env(int argc, char argv[]option_t *option_list[]);
-  // use the env to update the option_list
-  // for each:
-  //   check for multiple use (> limit), etc.
-  //   case
-  //      required_multiple: append arg to value
-  //      required:          copy arg     to value
-  //      optional_present:  copy arg     to value
-  //      optional_missing:  copy default to value
-  //      none:              nothing
-  //   increment usageCount
-
-
- // This is called within scanopt_next, but is shown here
-  // 1. to remember to normalize the string
-  // 2. to illustrate what is going on
-  //argv = scanopt_normalize(&argc, argv);
-
-  ////////////////////////////////////////
-  // Normalize the command line options
-  //   1. expand all condense options
-  //   1. autocomplete all longform options
-  //   1. merge all options with there values
-  //   1. insert -- after all options
-  //   1. place option in order
-  //      - update the usage count
-  //      - print usage on error
-  //
-  // o::
-  //   -o,       -o"",   -ovalue, -o value
-  //   -o,       -o,     -ovalue, -o value  -- but seen via bash
-  //   NULL      NULL    "value"  "value"
-
-  // option optional_argument
-  //   --option, --option=, --option=value,
-  //   NULL      ""         "value"
-  //   NULL      NULL       "value"         --but viewed via bash
+//// A set of Getter Functions
+//char * scanopt_get_value(option_t item);
+//
+//// the following validate that the arg type is correct
+//int    scanopt_get_value_flag(option_t item);
+//int    scanopt_get_value_iVal(option_t item);
+//int    scanopt_get_value_lVal(option_t item);
+//double scanopt_get_value_fVal(option_t item);
+//double scanopt_get_value_dVal(option_t item);
+//
 
 
 
-extern option_t * find_option(int index, option_t *option_list[]);
+extern int scanopt_arg_default;
+int scanopt_arg_default = SO_ARG_DEFAULT;
 
-extern int scan_option(int argc, char * const argv, 
-                       option_t *option_list[], option_t ** item);
-       // returns the index of othe option, i.e., o_BIND
-       // modifies "item" to point to the current options item
-       //   you could call find_option instead
+static void scanopt_apply_env(option_t option_list[]);
+static void scanopt_first_use(option_t *item, char *value);
 
-       // incremently called to return all options 
-       //   even those with a (value == NULL)
-       // in one case, the programmer should have provide initial values
-       // but if not they should do it during this scan
+static int number_of_options(option_t option_list[]);
+
+#define SO_OPTION_NAME(item)  (item->longName != NULL ? item->longName : item->shortName )
+
+extern void scanopt_validate(option_t option_list[]) {
+   // must have at least a longName or shortName
+   // shortName is a single character
+   // shortname does not use ':' nor '?'
+   // check id < 0
+   //   -- SO_SYNONYM:     SO_ARG_NONE with SO_VAL_TEXT (i.e., the defualt)
+   //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SET_VAL_UNSET
+
+   // NOT checked: if (id > 0), it is unique within the option_list
+
+   // move this to initialize: if SO_VAL_SET or SET_VAL_UNSET is provided, 
+   //    it must have an inital, or it should be  "0" "1"  respectively
+   
+   // default value is ONLY associated with a option_argument
+   //  no_aurgment,     SET | UNSET, initial value
+   //  option_argument, *,           initial value, default value
+   //  required_value,  *,           initial value
+ 
+   /// shuld we flip the order of execution of:  validate &
+
+ option_t *item;
+ option_t *root_item;
+ int i;
+ int isError = false;
+
+ for(i = 0; option_list[i].id != 0; i++ ) {
+    item = option_list+i;
+    if (item->longName == NULL && item->shortName == NULL) {
+      fprintf(stderr, "Option needs either a long name or short name\n");
+      isError = true;
+    }
+
+    if (item->shortName != NULL) {
+      if (item->shortName[0] == '\0' || item->shortName[1] != '\0') {
+        if (item->longName != NULL) {
+          fprintf(stderr, "Short name for \"%s\" must be a single character\n", item->longName);
+        } else {
+          fprintf(stderr, "Short name for option id=%d must be a single character\n", item->id);
+        }
+        isError = true;
+      }
+      switch (item->shortName[0]) {
+        case '?':
+        case ':':
+          fprintf(stderr, "Colon (:) nor Question (?) can not be used as an option\n");
+          isError = true;
+      }
+    }
+
+    // COMPLEMENT CONSTRAINTS
+    if (option_list[i].id < 0) {
+      if (SO_ARG_TYPE(item->type) != SO_ARG_NONE) {
+        fprintf(stderr,"Option \"%s\" must have no arguments\n", SO_OPTION_NAME(item));
+        isError = true;
+      }
+      root_item = scanopt_find(- option_list[i].id, option_list);
+      if (root_item->id == 0) {
+        fprintf(stderr, "Option \"%s\" missing it's complement\n", SO_OPTION_NAME(item));
+        isError = true;
+      }
+      
+      switch (SO_VAL_TYPE(item->type)) {
+        case SO_VAL_SET: 
+          if (SO_VAL_TYPE(root_item->type) != SO_VAL_UNSET) {
+            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));
+            isError = true;
+          }
+          break;
+
+        case SO_VAL_UNSET:
+          if (SO_VAL_TYPE(root_item->type) != SO_VAL_SET) {
+            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));            
+            isError = true;
+          }
+          break;
+
+        default:
+          fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(item));                      
+          isError = true;
+          break;
+      }
+      if (SO_DUP_TYPE(item->type) != SO_DUP_OVERWRITE) {
+        fprintf(stderr, "Complement Option \"%s\" must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));                      
+        isError = true;
+      }
+    }
+    // END OF COMPLEMENT CONSTRAINTS
+
+  }
+  //if (isError == true ) {
+  //  exit(1);
+  //}
+  return;
+}
+
+static void scanopt_config();
+
+extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
+  // rescans the command line 
+  // sets the getopt `optreset` to ensure getopt works from the beginning
+
+  int           isError = false;
+  int           count;
+  option_t      *item;
+
+  // Variables associates with the use of `getopt_long`
+  int           ch;           
+  char          *opt_string;
+  struct option *long_opts;
+
+  extern int    optreset;   
+  extern int    optind;
+  extern char   *optarg;
+
+  int longindex;
+
+  // Some stuff to address our use of `getopt_long`
+  optreset = 1;        // Make sure getopt starts at the beginning
+
+
+  count          = number_of_options(option_list);
+
+  // the following does not work.
+  // opt_string     = alloca(sizeof(char) * count * 3);   // each option could be "x::"
+  // long_opts      = alloca(sizeof(struct option)* count);
+
+  opt_string     = malloc(sizeof(char) * count * 3);   // each option could be "x::"
+  long_opts      = malloc(sizeof(struct option)* count);
+
+
+
+  scanopt_validate(option_list);
+  scanopt_initialize(option_list);
+
+  scanopt_optstring(opt_string, count * 3, option_list);
+  scanopt_longopt_struct(long_opts, count + 1, option_list);
+
+
+  opterr = 0;  // disable messages
+  while ((ch = getopt_long(argc, argv, opt_string, long_opts, &longindex)) != -1) {
+    // getopt_long return values:
+    //   -1  : when argv list is exhausted
+    //    0  : when a flag has been set... (will no happen in our case)
+    // <256  : Short Option
+    // >256  : Long Options
+    if (ch <= 0xff) {   // ShortOp was provided by the user
+      switch (ch) {
+        case ':':       // missing argument  (58) (0x3a)
+          fprintf(stderr, "Missing argument for: %s\n", argv[optind-1]);
+          continue;      // or we are don with the loop?
+          //return optind;
+          break;
+        case '?':       // ambigous option   (63) (0x3f)
+          fprintf(stderr, "Unknown option: %s\n", argv[optind-1]);
+          continue;     // or we are don with the loop?
+          //return optind;          
+          break;
+        default:
+          item = scanopt_find_shortName(ch, option_list);
+          ch = item->id;
+      }
+    } else {
+      ch = ch >> 8;
+      item = scanopt_find(ch, option_list);
+    }
+    //////////////////////////////////////////////
+
+    assert(item->id != 0);
+    item->count ++;
+
+    //////////////////////////////////////////////
+    // First use of the option
+    if (item->count == 1) {
+      scanopt_first_use(item, optarg);
+      continue;
+    }
+
+    // Issue if Dup mode is APPEND, we have already copy the value
+
+    ///////////////////////////////////////////////
+    // Subsequent use of the option
+    switch (SO_DUP_TYPE(item->type)) {
+      case SO_DUP_ERROR:
+        fprintf(stderr, "Invalid duplicate use of --%s\n", SO_OPTION_NAME(item));
+        isError = true;
+        break;
+
+      case SO_DUP_OVERWRITE:
+        scanopt_first_use(item, optarg);
+        break;
+
+      case SO_DUP_IGNORE:
+        // skipping/ignoring the duplicate
+        fprintf(stderr, "Warning duplicate use of --%s\n", SO_OPTION_NAME(item));
+        break;
+
+      case SO_DUP_APPEND:
+        item->valueArray[item->count] = optarg;
+        assert(item->count < SO_DUP_MAX );
+        break;
+  
+      default:
+        assert(false);
+    }
+  }
+  
+  scanopt_apply_env(option_list);
+
+  return optind;
+}
+
+
+#define SO_OPTION_isEND(x)  x.id != 0
+
+extern void scanopt_usage(option_t option_list[]){
+  option_t item;
+  char     *format;
+
+  fprintf(stdout, "Options:\n");
+  for (int i = 0; option_list[i].id == 0; i++) {
+    item = option_list[i];
+
+    // must have at least a longName or shortName
+    assert(item.longName != NULL || item.shortName != NULL );
+
+    fprintf(stdout, "\t");
+
+    if (item.format == NULL ) {
+      format = "arg";
+    } else {
+      format = item.format;
+    }
+
+    // SHORT NAME
+    if (item.shortName != NULL) {
+      fprintf(stdout, "-%s", item.shortName);
+ 
+      switch(SO_ARG_TYPE(item.type)) {
+        case SO_ARG_OPTIONAL: 
+          // no space before the option 
+          fprintf(stdout, "[%s]", format);
+          break;
+
+         case SO_ARG_REQUIRED:
+          fprintf(stdout, " %s", format);
+          break;
+      } 
+      if (item.longName != NULL) {
+        fprintf(stdout, ", ");
+      }
+    }
+
+    /// LONG NAME
+    if (item.longName != NULL) {
+      fprintf(stdout, "--%s", item.longName);
+      switch(SO_ARG_TYPE(item.type)) {
+        case SO_ARG_OPTIONAL:
+          // no space before the option 
+          fprintf(stdout, "[=%s]", format);
+          break;
+
+        case SO_ARG_REQUIRED:
+          fprintf(stdout, " %s", format);
+          break;
+      } 
+    }
+    fprintf(stdout, "\n");
+
+    // DESCRIPTION
+    if (item.description != NULL) {
+      fprintf(stdout, "\t\t%s", item.description);
+    }
+    
+    if (item.defaultValue != NULL) {
+      fprintf(stdout, "\t\tDEFAULT: %s\n", item.defaultValue);
+    }
+    if (item.envName != NULL) {
+      fprintf(stdout, "\t\tENVIRONMENT VARIABLE: %s\n", item.envName);
+    }
+    fprintf(stdout, "\n");
+  }
+  return;
+}
+
 
 
  /* 
   Process:
     0. define the structure [passed as a paramater]  
-    1. normailize the command line
+    // ! 1. normailize the command line
     2. if optreset == 1
        - optreset = 0;
        - update all generic variables, e.g., optind
@@ -243,17 +382,6 @@ extern int scan_option(int argc, char * const argv,
 
           - item.count ++
           - item.value = argv.value  (as appropriate)
-
-       b. if no item or error?  (error)
-          - use the  option_t * error_1 = {O_ERROR1, "", '?', ""}
-          -          option_t * error_2 = {O_ERROR2, "", ':', ""}
-          - item.count ++
-          - item.value = arv.value (as appropriate)
-          * semantically equivalent to 
-             SO_ADD(o_ERROR1, "", ':', "") 
-             SO_ADD(o_ERROR2, "", '?', "") 
-
-          *  upon next call to scan_option, come here
 
     5. walk the structure, using item
 
@@ -267,101 +395,261 @@ extern int scan_option(int argc, char * const argv,
 
 */
 
+extern option_t *scanopt_find(int id, option_t option_list[]) {
+  int i; 
+
+  for(i = 0; option_list[i].id != 0; i++ ) {
+    if (option_list[i].id == id) break;
+  }
+
+  return &(option_list[i]);
+}
+
+extern option_t *scanopt_find_shortName(int ch, option_t option_list[]) {
+  int i; 
+
+  for(i = 0; option_list[i].id != 0; i++ ) {
+    if (option_list[i].shortName == NULL) continue;
+    if (option_list[i].shortName[0] == ch) break;
+  }
+
+  return &(option_list[i]);
+}
 
 
-void setoption_print_options(){
-  for (int i = 0; option_list[i].name != NULL; i++) {
-     item = option_list[i];
+static void scanopt_first_use(option_t *item, char *value) {
+  // Update the 'value' base up
+  //   case
+  //      required_multiple: copy value    to item->value
+  //      required:          copy value    to item->value
+  //      optional_present:  copy value    to item->value
+  //      optional_missing:  copy default  to item->value
+  //      none:              nothing       but address SET/UNSET     
 
-     // print the short form
-     if (item.short_form != '\0' || item.long_form != NULL ) {
-       fprintf("\t");
-     } else {
-       assert(FALSE);  // it must have a long or short form
-     }
+  switch(SO_ARG_TYPE(item->type)) {
+    case SO_ARG_NONE:
 
-     if (item.short_form != '\0') {
-       fprintf(stdout, "-%c", item.short_form);
-       if (item.arg_name != NULL) {
-         assert(item.option_type != no_argument);
-         if (item.option_type == optional_argument) {
-          fprintf(stdout, "[");
-         }
-         fprintf(stdout, " %s", item.arg_name);
-         if (item.option_type == optional_argument) {
-           fprintf(stdout, "]");
-         }
-       }
-       if (item.long_form != NULL) {
-         fprintf(stdout, ", ");
-       }
-     }
-     // print the long form
-     if (item.long_form != NULL) {
-       fprintf(stdout, "-%s", item.long_form);
-       if (item.arg_name != NULL) {
-         assert(item.option_type != no_argument);
-         if (item.option_type == optional_argument) {
-          fprintf(stdout, " [");
-         }
-         fprintf(stdout, "=%s", item.arg_name);
-         if (item.option_type == optional_argument) {
-           fprintf(stdout, "]");
-         }
-       }
-     }
-     fprint(stdout, "\n");
-     fprintf(stdout, "\t\t%s", item.description);
-     if (item.value != NULL) {
-       fprintf(stdin, "\t\tDEFAULT: %s\n", item.value);
-     }
-     if (item.env_name != NULL) {
-       fprintf(stdin, "\t\tENVIRONMENT VARIABLE: %s\n", item.env_name);
-     }
-     fprintf(stdout, "\n");
+      switch (SO_VAL_TYPE(item->type)) {
+        case SO_VAL_SET:      item->value = "1";   break;
+        case SO_VAL_UNSET:    item->value = "0";   break;
+      }
+
+    case SO_ARG_OPTIONAL: 
+      if (value == NULL)
+        item->value = item->defaultValue;
+      else
+        item->value = value;
+      break;
+
+    case SO_ARG_REQUIRED: item->value = value; break;
+      
+    default:
+      assert(false);
+      break;
   }
   return;
 }
 
 
-setoption_setenv_options() {
-  struct option_item *item;
+extern void scanopt_initialize(option_t option_list[]) {
+  // For each item on the list,
+  //   initializes the working data
 
-  for (int i = 0; option_list[i].name != NULL; i++) {
+  option_t item;
+
+  for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list[i];
 
-    if (item.env_name != NULL);
-      value = getenv(item.env_name);
+    if (item.id < 0) continue;
+
+    // Initialize working data!
+    item.value = NULL;
+    for(int j = 0; j < SO_DUP_MAX; j++) {
+      if (item.valueArray[j] == NULL)  break;
+      item.valueArray[j] = NULL;
+    }
+    item.count = 0;
+
+    // for _SET and _UNSET must there be an initial value, use.
+    item.value = item.initValue;
+  }
+}
+
+static void scanopt_apply_env(option_t option_list[]) {
+  option_t *item;
+
+  for (int i = 0; option_list[i].id != 0; i++) {
+    item = option_list+i;
+
+    if (item->id < 0) continue;
+    if (item->count > 0) continue;
+
+    if (item->envName != NULL) {
+      char *value = getenv(item->envName);
       if (value != NULL) {
-        item.value = value;
+        item->count++;
+        scanopt_first_use(item, value);
       }
+    }
   }
 }
 
 
-Maybe these helper APIs
-
-true/false = scanopt_name("--conf=", argv[1]);
-  // returns or if there argv[1]
-
-// Issue: at this point the command line has not been normalized.
-// So normalize the first one.
-// I need to know that it is required
-
-    scanopt_required_value(1);
-       // assumes, thruns scanopt_name, if true, obtains the required value
-
-    scanopt_optional_value(1);
-       // runs scanopt_name, if true, 
-
-   // sees the next option has the corresponding name
-
-value      = scanopt_recValue("--conf", "-c", 1);
-   // returns the required value
-   // returns NULL if scanopt_name would return false
-
-value      = scanopt_optValue("--conf", "-c", 1);
-   // option must be connected
-   // returns NULL
+static void scanopt_config() {
+  printf("not implemented");
+  return;
+}
 
 
+//extern int scanopt_next(option_t option_list[], int flag) {
+extern int scanopt_next(option_t option_list[]) {
+
+  static int current_index = 0;
+  static int initialized = false;
+
+  option_t item;
+
+  if (initialized == false) {
+    initialized = true;
+    current_index = 0;
+  }
+
+    // Not sure of the utility of the following.
+    // do { 
+    //   current_index ++;
+    //   switch (flag) {
+
+    //     case SO_OPTIONS_NOVAR:
+    //       if (item.flag != NULL);
+    //         continue;
+    //       // merge;
+
+    //     case SO_OPTIONS_DEFINED:
+    //       if (item.count == 0)
+    //         continue;
+    //       break;
+
+    //     case SO_OPTIONS_ALL: 
+    //       break;
+    //    }
+    //    break;
+    // } while (true);
+
+  do { 
+    item = option_list[current_index];
+    current_index ++;
+
+    if (item.id == 0)   return -1;
+    if (item.count > 0) break;
+
+    // For unused compliments, use the SO_VAL_SET to determine what to return
+    if (SO_VAL_TYPE(item.type) == SO_VAL_SET)   break;
+    if (SO_VAL_TYPE(item.type) == SO_VAL_UNSET) continue;
+  } while (true);
+
+//   at least one of them has been used.
+//   if item.type == SO_VAL_SET    && item.value == "1"
+//     return item.index
+//   if item.type == SO_VAL_SET    && item.value == "0"
+//     return - item.index
+//   if item.type == SO_VAL_UNSET  && item.value == "1"  
+//     return item.index
+//   if item.type == SO_VAL_UNSET  && item.value == "0"
+//     return - item.index
+
+
+  optarg = item.value;
+  optind = current_index;         // relative to the option_list NOT argv
+  // optopt = item.shortName[0];  // does not make sense
+
+  switch (SO_VAL_TYPE(item.type)) {
+   case SO_VAL_TEXT:   opt_value.sVal = item.value; break;
+   case SO_VAL_SET:  
+   case SO_VAL_UNSET:  
+   case SO_VAL_INT:    opt_value.iVal = (int) atoi(item.value); break;
+   case SO_VAL_LONG:   opt_value.lVal = (long) atoi(item.value); break;
+   case SO_VAL_FLOAT:  opt_value.fVal = (float) atof(item.value); break;
+   case SO_VAL_DOUBLE: opt_value.dVal = (float) atof(item.value); break;
+   case SO_VAL_ARRAY:  opt_value.aVal = item.valueArray; break; 
+  }
+  if (item.flag != NULL) {
+    switch (SO_VAL_TYPE(item.type)) {
+      case SO_VAL_TEXT:   (* (char **)item.flag) = opt_value.sVal; break;
+      case SO_VAL_SET:
+      case SO_VAL_UNSET:
+      case SO_VAL_INT:    (* (int *)item.flag) = opt_value.iVal; break; 
+      case SO_VAL_LONG:   (* (int *)item.flag) = opt_value.lVal; break; 
+      case SO_VAL_FLOAT:  (* (float *)item.flag) = opt_value.fVal; break; 
+      case SO_VAL_DOUBLE: (* (double *)item.flag) = opt_value.dVal; break; 
+      case SO_VAL_ARRAY:  (* (char ***)item.flag) = opt_value.aVal; break; 
+
+    }
+  }
+  return item.id;   // sometimes return the compliment.
+}
+
+static int number_of_options(option_t option_list[]) {
+   int i;
+
+   for (i = 0; option_list[i].id != 0; i++);
+   return i;
+}
+
+
+
+// // Secondary API
+void scanopt_optstring(char * opt_string, int length, option_t option_list[]) {
+//   // generates the short form optstring
+//   // "b:c::d:e:fhl:p:s:e:w:vV"
+  int x; // index into opt_string 
+  int i; //index into option_list
+
+
+  opt_string[0] = '+';  // halt on first non-option argument 
+  opt_string[1] = ':';  // suppress error messages
+  x = 2;
+
+  for (i = 0; option_list[i].id != 0; i++) {
+    assert(i < length);
+
+    if (option_list[i].shortName != NULL) {
+      opt_string[x] = option_list[i].shortName[0]; x++;
+      switch (option_list[i].type) {
+        case SO_ARG_NONE:  break;
+        case SO_ARG_OPTIONAL:
+          opt_string[x] = ':'; x++;
+          //merge;
+        case SO_ARG_REQUIRED:
+          opt_string[x] = ':'; x++;
+      }
+    }
+  }
+  return;
+}
+
+
+void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]) {
+//   // generates the struct option as per the C api
+//   // no need to create the flag option..
+// but this one generates a warning because of 'struct option' stems from
+// getopt.h
+
+  struct option long_item;
+  option_t item;
+  int i = 0;
+
+  for (i = 0; option_list[i].id != 0; i++) {
+    item = option_list[i];
+    long_opt[i].name = item.longName;
+    long_opt[i].has_arg = SO_ARG_TYPE(item.type);
+    long_opt[i].flag = NULL;
+    long_opt[i].val = item.id << 8;
+   }
+// bzero((void *)(long_opt+i), sizeof(struct option));
+    long_opt[i].name = 0;
+    long_opt[i].has_arg = 0;
+    long_opt[i].flag = NULL;
+    long_opt[i].val = 0;
+
+ return;
+}

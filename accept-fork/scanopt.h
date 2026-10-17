@@ -1,132 +1,164 @@
 
+extern char *optarg;
+extern int optind;
+extern int optopt;
+extern int opterr;
+extern int optreset;
 
-int default_arg = SO_ARG_NONE | SO_ARG_SET | SO_ARG_OVERWRITE_DUPLICATE;
-// These are used to address how to deal with duplications.
-// Need to have a global value to update the default for all.
-// That way we can ignore individual settings within an item spec, if it is 0
-// E.g., if O_Global_DUPLICATE_HANDLING is NON-Zero
-//     the default handling set for each item upon creation of that item.
+#define SO_ARG_NONE        (0x000)
+#define SO_ARG_REQUIRED    (0x001)
+#define SO_ARG_OPTIONAL    (0x002)
+#define SO_ARG_TYPE(var)   (var & 0x000f)
 
+// Each command line option has three major properties.
+// 1. the arguement type: required, optional, and none
+// 1. the value type:     text, set and unset (for flags), and then
+//                        int, long, float, and double.
+// 
+// 1. the duplicative mode: overwrite, error, ignore, and append
+//    overwrite give priority to the last definition
+//    ignore gives priority to the first definition
+//    append creates a list of options
 
-#define SO_ARG_NONE        (0x00)  // 
-#define SO_ARG_SET         (0x01)  // set the value to 1
-#define SO_ARG_UNSET       (0x02)  // clear the value to 0
-
-#define SO_ARG_REQUIRED    (0x10)
-//      unused             (0x11) 
-//      unused             (0x12)
-#define SO_ARG_TEXT        (0x13)  // type: char *, conversion: none
-#define SO_ARG_INT         (0x14)  // "%d"
-#define SO_ARG_LONG        (0x15)  // "%ld"
-#define SO_ARG_FLOAT       (0x16)  // "%f" 
-#define SO_ARG_DOUBLE      (0x17)  // "%lf" 
-
-#define SO_ARG_OPTIONAL    (0x20)  // ORed with above to define all the optional types, e.g., 
-//      unused             (0x21)
-//      unused             (0x22)
-#define SO_ARG_OPT_TEXT    (0x23)  // O_ARG_OPT_TEXT = O_ARG_TEXT | O_OPTIONAL_ARG
-#define SO_ARG_OPT_INT     (0x24)  // "%d"
-#define SO_ARG_OPT_LONG    (0x25)  // "%ld"
-#define SO_ARG_OPT_FLOAT   (0x26)  // "%f" 
-#define SO_ARG_OPT_DOUBLE  (0x27)  // "%lf" 
-
-#define SO_ARG_OVERWRITE_DUPLICATE  (0x000)  // Use the LAST value associates with an option (DEFAULT)
-#define SO_ARG_ERROR_DUPLICATE      (0x100)  // Emit an error upon a duplicate option
-#define SO_ARG_IGNORE_DUPLICATE     (0x200)  // Use the First value assoicated with an option
-#define SO_ARG_APPEND_DUPLICATE     (0x300)  // Append the value so all duplicates can be   (presumes )
-   // which should be the default..?   
-   //
-   // I could argue that its APPEND, in this way getop will reture each substring in succively
-   //   If I do this than I could do post processing of after all argv is read
-   //
-   // I could also argue its OVERWRITE, unless the programmer does something
-   //   special in the "case" to detect multiple use, this is what it would be
-
-//#define O_ARG_VAL   (4)  
-// This provides funcationality similiar to O_OVERWRITE_DUPLICATE
-// but two flags share the some value
+#define SO_OPTIONS_RETRIEVE_DEFINED (0)
+#define SO_OPTIONS_RETRIEVE_NOVAR   (1)   // only those defined, but no var
+#define SO_OPTIONS_RETRIEVE_ALL     (2)
 
 
+#define SO_VAL_TEXT        (0x000)
+#define SO_VAL_SET         (0x010)  // set the value to 1
+#define SO_VAL_UNSET       (0x020)  // clear the value to 0
+#define SO_VAL_INT         (0x030)  // conversion done at the end
+#define SO_VAL_LONG        (0x040)  // conversion done at the end
+#define SO_VAL_FLOAT       (0x050)  // conversion done at the end
+#define SO_VAL_DOUBLE      (0x060)  // conversion done at the end
+#define SO_VAL_ARRAY       (0x070)
+#define SO_VAL_TYPE(var)   (var & 0x00f0)
+
+#define SO_DUP_OVERWRITE   (0x000)  // Use the LAST value associates with an option (DEFAULT)
+#define SO_DUP_IGNORE      (0x100)  // Use the First value assoicated with an option
+#define SO_DUP_APPEND      (0x200)  // Append the value so all duplicates can be   (presumes )
+#define SO_DUP_ERROR       (0x300)  // Emit an error upon a duplicate option
+#define SO_DUP_TYPE(var)   (var & 0x0f00)
 
 
+#define SO_DUP_MAX         (20)     // Maximum number of values that can be appended
+#define SO_ARG_ERROR       (0xF000)
+#define SO_ARG_DEFAULT     (SO_ARG_REQUIRED | SO_VAL_TEXT | SO_DUP_OVERWRITE)
+extern int scanopt_arg_default;
 
-// If we get ride of formating, which I think is what we are doing
-// the above list can be reduced to
-// #define SO_ARG_NONE      (0x00)  // type: int, conversion: none  
-// #define SO_ARG_REQUIRED  (0x10)  // type: char *, conversion: none
-// #define SO_ARG_OPTIONAL  (0x20)
 
-#define SO_ALIAS(x) (- x)
+// Synonym is when there are multiple names for the same option
+#define SO_SYNONYM(x)    (-x)
+
+// Compliments are, e.g., flags that are opposite, e.g., rm -f -i
+#define SO_COMPLEMENT(x) (-x)
+
+// Alias is a single option that expands into one or more other options
+// We don't support such alias (at this time)
+// Current thinking is that a separate table needs to be maintained
+//   if option is an alias then look up the definition
+//   then update each of those options in turn
+
 
 // Use the following to support literal defintion of an option_t;
-#define  SO_SWITCH_ADD(i, e, l, s, t)  { i, e, l, s, t }
-// should I have more like
-//#define  SO_SWITCH_...
-#define  SO_SWITCH_END()  { 0 }
+#define  SO_OPTION_END()  { 0 }
 
 
-extern char *optarg;   //current argument value under consideration: option_spec.value   ---TYPE is WRONG;
-extern int optind;     //the next index into argv 
-extern int optopt;     // used when an unknown option is obtained  '?' -- optopt
-                       // does not appear to be a equivalent for long options
-                       // we should return 0 for the index, and fill in the long or short name
-                       //      or change this to char *
-                       //     but here we need to change the processing... becuase we can have multiple errors to report
+// Reserved for backward compatability with getopt
+#define SO_ID_COLON     (0xffff)
+#define SO_ID_QUESTION  (0xffff)
+#define SO_ID_ERROR     (0xffff)
 
-extern int opterr;     // enables or disables error messages
-extern int optreset;   // set to 1 to start from the beginning
+typedef union _opt_value_t {
+  char * sVal;
+  int    iVal;
+  long   lVal;
+  float  fVal;
+  double dVal;
+  char **aVal;
+} opt_value_t;
 
+extern opt_value_t opt_value;
 
 typedef struct _option_t {
-  size_t           index;       // o_BIND  -- same as 'val' in popt
-                   // index != 0, secondary recorde: index < 0 
-                   // reserve index for backward compatbility ?
-                   //   ? (63), or : (58)
+  // MVP
+  int      id;              // return value from scanopt_next
+  char     *longName;
+  char     *shortName;      // typically a char, but to be consistent
+  int      type;            // REQUIRED | TEXT | ERROR
 
-  char             *longName;   // "bind"
-  char             shortName;   // 'b'
-  int              argType;     // SO_ARG_REQUIRED
-                                // SO_ARG_{type}
-                                // SO_{}_DUPLICATE
+  // Usage (--help) Informaion
+  char     *description;
+  char     *format;         // e.g., "<number>"
 
-  char             *envName;    // "SCGI_BIND"
+  // Env Stuff
+  char     *envName;
 
-  // Usage Informaion
-  char             *description; // "The IP address of the server"
-  char             *argForm;     // "<ip address>"
+  // New Stuff
+  void     *flag;           // pointer to the appropriate type in which the final value is stored
+  char     *initValue;
+  char     *defaultValue;
 
-  // working data:  move to end?
-  char *           value;        // the initial value (if not NULL) and final (non converted)
-  int              count;        // update each time on the cli
-                                 // needed for Error and first
-
+  // Working data: 
+  char     *value;
+  char     *valueArray[2];   // argv-style array of values
+  // char     *valueArray[SO_DUP_MAX];   // argv-style array of values
+  int      count;                     // command-line reference count
 } option_t;
 
-// No need to have a separate variable for initial and final value
-// This would ONLY be needed if we wanted to use the some argument list over.
-// In practice you would reuse the getopt like function again, but it would 
-// be against a separate set of argumentes
-//   e.g.,    command -a -b -c  subcommand -a -b -c
-//   e.g.,  one call form the command, and one call for the subcommand
+
+
+// Main APIs
+extern void scanopt_initialize(option_t option_list[]);
+extern int scanopt_scan(int argc, char *argv[], option_t option_list[]);
+
+extern int scanopt_next(option_t option_list[]);
+//extern int scanopt_next(option_t option_list[], int flag);
+
+
+extern void scanopt_usage(option_t option_list[]);
+
+
+// DataStructure APIs
+extern void scanopt_validate(option_t option_list[]);
+extern option_t *scanopt_find(int id, option_t option_list[]);
+  // returns the index into option_list
+extern option_t *scanopt_find_shortName(int ch, option_t option_list[]);
+
+
+extern void  scanopt_add_description(option_t item, char *descript, char *format);
+extern void  scanopt_add_environment(option_t item, char *envName);
+extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
+extern void  scanopt_add_variables(option_t item, void *variable);
+extern void  scanop_opt_add_type(option_t item, int type);
+
+
+
+
+// // Secondary API
+extern void scanopt_optstring(char * opt_string, int length, option_t option_list[]);
+//   // generates the short form optstring
+//   // "b:c::d:e:fhl:p:s:e:w:vV"
 //
-///////////////////
+//   prepend ":" to suppress error messages
+//   then have a rule to handle ":+"
+//      ":" silent mode
+//      "+" stop at first nonoption arguement
+
+extern void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]);
+//   // generates the struct option as per the C api
+//
+// but this one generates a warning because of 'struct option' stems from
+// getopt.h
 
 
-extern option_t * find_option(int index, option_t *option_list[]);
+extern void scanopt_longopt(char *long_string, option_t option_list[]);
+//   // generates the long form optstring as per the command line
+//   // "bind:,documents:foreground, ...."
 
-extern void setoption_print_options();
 
 
-// Secondary API
-char * optionList2optString(option_t options_list);
-  // generates the short form optstring
-  // "b:c::d:e:fhl:p:s:e:w:vV"
 
-struct option * optionList2longopt(option_t options_list);
-  // generates the struct option as per the C api
-
-char * optionList2longopt(option_t options_list);
-  // generates the long form optstring as per the command line
-  // "bind:,documents:foreground, ...."
 
 
