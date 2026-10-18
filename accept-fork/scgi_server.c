@@ -145,7 +145,7 @@ int main(int argc, char *argv[], char **envp) {
 
   // Socket Related
   struct sockaddr_in    socket_in;
-  int        any_addr = INADDR_ANY; 
+  int        any_addr = INADDR_ANY;
   socklen_t  len = sizeof(struct sockaddr);
 
   int socket_fd;
@@ -184,7 +184,7 @@ int main(int argc, char *argv[], char **envp) {
   // 3. special case with use of --version and --help
   //    : scgi [--version | --help ]
   //
-  // 4. check if there is only one parameter left ( [ exec ] 
+  // 4. check if there is only one parameter left ( [ exec ]
   //
 
   // 1. Get the name of the config file from the command line, and source it
@@ -225,7 +225,7 @@ int main(int argc, char *argv[], char **envp) {
   ////////////////////////////////////////////
 
   ///////////////////////////////////////////
-  // 
+  //
   if (scriptname != NULL) {
     {
       struct stat stats;
@@ -237,7 +237,7 @@ int main(int argc, char *argv[], char **envp) {
       if (S_ISREG(stats.st_mode) != 0) {
         perror("scriptname is not a regular file.");
         exit(1);
-      }       
+      }
     }
   }
 
@@ -287,7 +287,7 @@ int main(int argc, char *argv[], char **envp) {
   listen_p(socket_fd, 0);
 
 
-  do { 
+  do {
     // Accept a connection
     connection_fd = accept(socket_fd, (struct sockaddr *) &socket_in, &len);
 
@@ -344,7 +344,7 @@ int main(int argc, char *argv[], char **envp) {
 //# SO_ARG_TYPE(otype, type, duplicative);
 //# SO_ARG_TYPE(required, text, error);
 
-#define SCANOPT_ADD_END {0} 
+#define SCANOPT_ADD_END {0}
 
 #define required_argument  SO_ARG_REQUIRED
 #define optional_argument  SO_ARG_OPTIONAL
@@ -428,7 +428,7 @@ extern int parse_options(int argc, char *argv[]) {
       case o_DOCUMENTS:
         // We could move the test for is directory
         // when we build the final scriptname
-        // 
+        //
         {
           struct stat stats;
 
@@ -439,7 +439,7 @@ extern int parse_options(int argc, char *argv[]) {
           if (S_ISDIR(stats.st_mode) != 0) {
             perror("document value is not a valid directory");
             exit(1);
-          }       
+          }
         }
         document_root = optarg;
         break;
@@ -512,7 +512,7 @@ extern int parse_options(int argc, char *argv[]) {
           print_usage_header();
           exit(1);
         }
-        { 
+        {
           in_addr_t s_addr;
 
           if (inet_pton(AF_INET, optarg, &s_addr) == 0) {
@@ -525,20 +525,20 @@ extern int parse_options(int argc, char *argv[]) {
         break;
 
       case o_PORT:
-        if (socket_file != NULL) { 
+        if (socket_file != NULL) {
           fprintf(stderr, "Illegal use of both --port and --socket\n");
           exit(1);
-        }        
+        }
         port = optarg;
         port_num = atoi(optarg);  // need to convert
         break;
 
       case o_SOCKET:
-        if (server_ip != NULL) { 
+        if (server_ip != NULL) {
           fprintf(stderr, "Illegal use of both --bind and --socket\n");
           exit(1);
-        }        
-        if (port != NULL) { 
+        }
+        if (port != NULL) {
           fprintf(stderr, "Illegal use of both --port and --socket\n");
           exit(1);
         }
