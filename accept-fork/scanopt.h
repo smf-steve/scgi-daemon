@@ -14,7 +14,7 @@ extern int optreset;
 // 1. the arguement type: required, optional, and none
 // 1. the value type:     text, set and unset (for flags), and then
 //                        int, long, float, and double.
-// 
+//
 // 1. the duplicative mode: overwrite, error, ignore, and append
 //    overwrite give priority to the last definition
 //    ignore gives priority to the first definition
@@ -100,7 +100,7 @@ typedef struct _option_t {
   char     *initValue;
   char     *defaultValue;
 
-  // Working data: 
+  // Working data:
   char     *value;
   char     *valueArray[2];   // argv-style array of values
   // char     *valueArray[SO_DUP_MAX];   // argv-style array of values
