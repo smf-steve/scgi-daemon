@@ -91,7 +91,7 @@ extern void scanopt_validate(option_t option_list[]) {
 
    // NOT checked: if (id > 0), it is unique within the option_list
 
-   // move this to initialize: if SO_VAL_SET or SET_VAL_UNSET is provided, 
+   // move this to initialize: if SO_VAL_SET or SET_VAL_UNSET is provided,
    //    it must have an inital, or it should be  "0" "1"  respectively
    
    // default value is ONLY associated with a option_argument
@@ -143,7 +143,7 @@ extern void scanopt_validate(option_t option_list[]) {
       }
       
       switch (SO_VAL_TYPE(item->type)) {
-        case SO_VAL_SET: 
+        case SO_VAL_SET:
           if (SO_VAL_TYPE(root_item->type) != SO_VAL_UNSET) {
             fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));
             isError = true;
@@ -152,18 +152,18 @@ extern void scanopt_validate(option_t option_list[]) {
 
         case SO_VAL_UNSET:
           if (SO_VAL_TYPE(root_item->type) != SO_VAL_SET) {
-            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));            
+            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));
             isError = true;
           }
           break;
 
         default:
-          fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(item));                      
+          fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(item));
           isError = true;
           break;
       }
       if (SO_DUP_TYPE(item->type) != SO_DUP_OVERWRITE) {
-        fprintf(stderr, "Complement Option \"%s\" must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));                      
+        fprintf(stderr, "Complement Option \"%s\" must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));
         isError = true;
       }
     }
@@ -179,7 +179,7 @@ extern void scanopt_validate(option_t option_list[]) {
 static void scanopt_config();
 
 extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
-  // rescans the command line 
+  // rescans the command line
   // sets the getopt `optreset` to ensure getopt works from the beginning
 
   int           isError = false;
@@ -187,11 +187,11 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
   option_t      *item;
 
   // Variables associates with the use of `getopt_long`
-  int           ch;           
+  int           ch;
   char          *opt_string;
   struct option *long_opts;
 
-  extern int    optreset;   
+  extern int    optreset;
   extern int    optind;
   extern char   *optarg;
 
@@ -236,7 +236,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
         case '?':       // ambigous option   (63) (0x3f)
           fprintf(stderr, "Unknown option: %s\n", argv[optind-1]);
           continue;     // or we are don with the loop?
-          //return optind;          
+          //return optind;
           break;
         default:
           item = scanopt_find_shortName(ch, option_list);
@@ -319,15 +319,15 @@ extern void scanopt_usage(option_t option_list[]){
       fprintf(stdout, "-%s", item.shortName);
  
       switch(SO_ARG_TYPE(item.type)) {
-        case SO_ARG_OPTIONAL: 
-          // no space before the option 
+        case SO_ARG_OPTIONAL:
+          // no space before the option
           fprintf(stdout, "[%s]", format);
           break;
 
          case SO_ARG_REQUIRED:
           fprintf(stdout, " %s", format);
           break;
-      } 
+      }
       if (item.longName != NULL) {
         fprintf(stdout, ", ");
       }
@@ -338,14 +338,14 @@ extern void scanopt_usage(option_t option_list[]){
       fprintf(stdout, "--%s", item.longName);
       switch(SO_ARG_TYPE(item.type)) {
         case SO_ARG_OPTIONAL:
-          // no space before the option 
+          // no space before the option
           fprintf(stdout, "[=%s]", format);
           break;
 
         case SO_ARG_REQUIRED:
           fprintf(stdout, " %s", format);
           break;
-      } 
+      }
     }
     fprintf(stdout, "\n");
 
@@ -367,9 +367,9 @@ extern void scanopt_usage(option_t option_list[]){
 
 
 
- /* 
+ /*
   Process:
-    0. define the structure [passed as a paramater]  
+    0. define the structure [passed as a paramater]
     // ! 1. normailize the command line
     2. if optreset == 1
        - optreset = 0;
@@ -396,7 +396,7 @@ extern void scanopt_usage(option_t option_list[]){
 */
 
 extern option_t *scanopt_find(int id, option_t option_list[]) {
-  int i; 
+  int i;
 
   for(i = 0; option_list[i].id != 0; i++ ) {
     if (option_list[i].id == id) break;
@@ -406,7 +406,7 @@ extern option_t *scanopt_find(int id, option_t option_list[]) {
 }
 
 extern option_t *scanopt_find_shortName(int ch, option_t option_list[]) {
-  int i; 
+  int i;
 
   for(i = 0; option_list[i].id != 0; i++ ) {
     if (option_list[i].shortName == NULL) continue;
@@ -424,7 +424,7 @@ static void scanopt_first_use(option_t *item, char *value) {
   //      required:          copy value    to item->value
   //      optional_present:  copy value    to item->value
   //      optional_missing:  copy default  to item->value
-  //      none:              nothing       but address SET/UNSET     
+  //      none:              nothing       but address SET/UNSET
 
   switch(SO_ARG_TYPE(item->type)) {
     case SO_ARG_NONE:
@@ -434,7 +434,7 @@ static void scanopt_first_use(option_t *item, char *value) {
         case SO_VAL_UNSET:    item->value = "0";   break;
       }
 
-    case SO_ARG_OPTIONAL: 
+    case SO_ARG_OPTIONAL:
       if (value == NULL)
         item->value = item->defaultValue;
       else
@@ -515,7 +515,7 @@ extern int scanopt_next(option_t option_list[]) {
   }
 
     // Not sure of the utility of the following.
-    // do { 
+    // do {
     //   current_index ++;
     //   switch (flag) {
 
@@ -529,13 +529,13 @@ extern int scanopt_next(option_t option_list[]) {
     //         continue;
     //       break;
 
-    //     case SO_OPTIONS_ALL: 
+    //     case SO_OPTIONS_ALL:
     //       break;
     //    }
     //    break;
     // } while (true);
 
-  do { 
+  do {
     item = option_list[current_index];
     current_index ++;
 
@@ -552,7 +552,7 @@ extern int scanopt_next(option_t option_list[]) {
 //     return item.index
 //   if item.type == SO_VAL_SET    && item.value == "0"
 //     return - item.index
-//   if item.type == SO_VAL_UNSET  && item.value == "1"  
+//   if item.type == SO_VAL_UNSET  && item.value == "1"
 //     return item.index
 //   if item.type == SO_VAL_UNSET  && item.value == "0"
 //     return - item.index
@@ -564,24 +564,24 @@ extern int scanopt_next(option_t option_list[]) {
 
   switch (SO_VAL_TYPE(item.type)) {
    case SO_VAL_TEXT:   opt_value.sVal = item.value; break;
-   case SO_VAL_SET:  
-   case SO_VAL_UNSET:  
+   case SO_VAL_SET:
+   case SO_VAL_UNSET:
    case SO_VAL_INT:    opt_value.iVal = (int) atoi(item.value); break;
    case SO_VAL_LONG:   opt_value.lVal = (long) atoi(item.value); break;
    case SO_VAL_FLOAT:  opt_value.fVal = (float) atof(item.value); break;
    case SO_VAL_DOUBLE: opt_value.dVal = (float) atof(item.value); break;
-   case SO_VAL_ARRAY:  opt_value.aVal = item.valueArray; break; 
+   case SO_VAL_ARRAY:  opt_value.aVal = item.valueArray; break;
   }
   if (item.flag != NULL) {
     switch (SO_VAL_TYPE(item.type)) {
       case SO_VAL_TEXT:   (* (char **)item.flag) = opt_value.sVal; break;
       case SO_VAL_SET:
       case SO_VAL_UNSET:
-      case SO_VAL_INT:    (* (int *)item.flag) = opt_value.iVal; break; 
-      case SO_VAL_LONG:   (* (int *)item.flag) = opt_value.lVal; break; 
-      case SO_VAL_FLOAT:  (* (float *)item.flag) = opt_value.fVal; break; 
-      case SO_VAL_DOUBLE: (* (double *)item.flag) = opt_value.dVal; break; 
-      case SO_VAL_ARRAY:  (* (char ***)item.flag) = opt_value.aVal; break; 
+      case SO_VAL_INT:    (* (int *)item.flag) = opt_value.iVal; break;
+      case SO_VAL_LONG:   (* (int *)item.flag) = opt_value.lVal; break;
+      case SO_VAL_FLOAT:  (* (float *)item.flag) = opt_value.fVal; break;
+      case SO_VAL_DOUBLE: (* (double *)item.flag) = opt_value.dVal; break;
+      case SO_VAL_ARRAY:  (* (char ***)item.flag) = opt_value.aVal; break;
 
     }
   }
@@ -601,11 +601,11 @@ static int number_of_options(option_t option_list[]) {
 void scanopt_optstring(char * opt_string, int length, option_t option_list[]) {
 //   // generates the short form optstring
 //   // "b:c::d:e:fhl:p:s:e:w:vV"
-  int x; // index into opt_string 
+  int x; // index into opt_string
   int i; //index into option_list
 
 
-  opt_string[0] = '+';  // halt on first non-option argument 
+  opt_string[0] = '+';  // halt on first non-option argument
   opt_string[1] = ':';  // suppress error messages
   x = 2;
 
