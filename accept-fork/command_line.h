@@ -1,12 +1,33 @@
+////////////////////////////////////////////
+// COMMAND LINE and ENV PROCESSING
+// 
+//   scgi [ --conf file ]
+//
+//     1. special case for no command line options/arguments.
+//        - if present, it must be the only option
+//        - it is implicitly present, if the command line is empty
+//
+//   scgi [options] ( --port=<number> | --socket=<filename> ) [ exec ]
+//
+//      2. normal processing of the command line for options
+//
+//   scgi [--version | --help ] [ ... ]
+//
+//      3. special case with use of --version and --help
+//         - regardless of the composition of the command line
+//         - if either --version or --help is present:
+//
+//
+
 
 /* COMMAND LINE OPTIONS */
 #define  o_BIND       (1)
 #define  o_CONF       (2)
 #define  o_DOCUMENTS  (3)
-#define  o_EXEC       (4)
+#define  o_SCRIPT     (4)
 #define  o_FOREGROUND (5)
 #define  o_HELP       (6)
-#define  o_LOG        (7)
+#define  o_ERROR_LOG  (7)
 #define  o_PORT       (8)
 #define  o_SOCKET     (9)
 #define  o_UDS       (10)
@@ -15,19 +36,26 @@
 #define  o_VERSION   (13)
 #define  o_WORKERS   (14)
 
-#define WORKERS_DEFAULT (5)
-#define WORKERS_MAX (15)
-#define MAX_ENVS (50)
+#define SET (1)
+#define UNSET (0)
 
 
+#define DEFAULT_CONFIG_FILE   "config"
+#define DEFAULT_PID_FILE      "pid"
+#define DEFAULT_ERROR_FILE    "error.log"
+#define DEFAULT_DOCUMENT_FILE "cgi"
+#define DEFAULT_SOCKET_FILE   "socket"
 
+#define DEFAULT_WORKERS (5)
+#define MAX_WORKERS (15)
+
+// The following are variables that are defined via command line processing.
 extern char * server_ip;
 extern char * document_root;
 extern int    foreground_flag;
-extern char * port;
-extern int    port_num;
+extern int    port;
 extern char * scriptname;
-extern char * socket_file;
+extern int    socket_flag;
 extern int    user;
 extern int    verbose_flag;
 extern int    workers;

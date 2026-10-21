@@ -15,9 +15,8 @@
 #include "scanopt.h"
 #include "command_line.h"
 
-#define SET (1)
-#define UNSET (0)
 
+#define MAX_ENVS (50)
 
 extern void set_command_line_options(int argc, char *argv[], char *home);
 
@@ -36,12 +35,6 @@ extern void set_command_line_options(int argc, char *argv[], char *home);
 
 
 
-#define DEFAULT_CONFIG_FILE   "config"
-#define DEFAULT_PID_FILE      "pid"
-#define DEFAULT_ERROR_FILE    "error.log"
-#define DEFAULT_DOCUMENT_FILE "cgi"
-#define DEFAULT_SOCKET_FILE   "socket"
-
 // What is the value of recording the children pid.
    // only out-of-bound -- cleanup, ???
 
@@ -52,7 +45,7 @@ extern void set_command_line_options(int argc, char *argv[], char *home);
 
 int main(int argc, char *argv[], char **envp) {
 
-  char scgi_home[FILENAME_MAX];
+  char scgi_dir[FILENAME_MAX];
   char working_directory[FILENAME_MAX];
   char config_file[FILENAME_MAX];
   char document_home[FILENAME_MAX];
@@ -78,19 +71,19 @@ int main(int argc, char *argv[], char **envp) {
     env_p = getenv("SCGI_HOME");
 
     if (env_p != NULL) {
-      strlcpy(scgi_home, env_p, FILENAME_MAX);
-      strlcat(scgi_home, "/", FILENAME_MAX);
+      strlcpy(scgi_dir, env_p, FILENAME_MAX);
+      strlcat(scgi_dir, "/", FILENAME_MAX);
     } else {
       env_p = getenv("HOME");
       assert(env_p != NULL);
-      strlcpy(scgi_home, env_p, FILENAME_MAX);
-      strlcat(scgi_home, "/.scgi/", FILENAME_MAX);
+      strlcpy(scgi_dir, env_p, FILENAME_MAX);
+      strlcat(scgi_dir, "/.scgi/", FILENAME_MAX);
     }
   }
   // set default values that might be overriden by the commandline:
-  // these are the values that are related to scgi_home
+  // these are the values that are related to scgi_dir
 
-  set_command_line_options(argc, argv, scgi_home);
+  set_command_line_options(argc, argv, scgi_dir);
   
   // set_command_line options
      // values that might be set
@@ -100,7 +93,7 @@ int main(int argc, char *argv[], char **envp) {
      // socket_file -- why does the user need to define the socket file
      //   -- they should only be to say use uds or inet socket
 
-  chdir(scgi_home);
+  chdir(scgi_dir);
 
 
 
@@ -120,11 +113,11 @@ int main(int argc, char *argv[], char **envp) {
 
 
   // Setup the Socket
-  if (port != NULL) {
+  if (port != 0) {
     // Setup Server-Side Socket Info (input)
     memset( &socket_in, 0, len);
     socket_in.sin_family = PF_INET;
-    socket_in.sin_port   = htons(port_num);
+    socket_in.sin_port   = htons(port);
 
     if (server_ip != NULL) {
       inet_pton(AF_INET, server_ip, (void *) &socket_in.sin_addr);
@@ -135,7 +128,7 @@ int main(int argc, char *argv[], char **envp) {
     // Allocate, Bind and Listen on the socket
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
   }
-  if (socket_file != NULL) {
+  if (socket_flag == SET) {
     fprintf(stderr, "socket file not implemented.\n");
     exit(1);
   }

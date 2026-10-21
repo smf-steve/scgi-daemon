@@ -79,7 +79,7 @@ extern void  scanop_opt_add_type(option_t item, int type);
 
 
 static void scanopt_apply_env(option_t option_list[]);
-static void scanopt_define_option(option_t *item, char *value);
+static void scanopt_define_option(option_t *item, char *value, option_t option_list[]);
 
 static int number_of_options(option_t option_list[]);
 
@@ -91,7 +91,7 @@ extern void scanopt_validate(option_t option_list[]) {
    // shortname does not use ':' nor '?'
    // check id < 0
    //   -- SO_SYNONYM:     SO_ARG_NONE with SO_VAL_TEXT (i.e., the defualt)
-   //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SET_VAL_UNSET
+   //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SO_VAL_UNSET
 
    // NOT checked: if (id > 0), it is unique within the option_list
 
@@ -264,7 +264,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
     // First use of the option
     if (item->count == 1) {
       optcount ++;
-      scanopt_define_option(item, optarg);
+      scanopt_define_option(item, optarg, option_list);
       continue;
     }
 
@@ -279,7 +279,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
         break;
 
       case SO_DUP_OVERWRITE:
-        scanopt_define_option(item, optarg);
+        scanopt_define_option(item, optarg, option_list);
         break;
 
       case SO_DUP_IGNORE:
@@ -427,7 +427,7 @@ extern option_t *scanopt_find_shortName(int ch, option_t option_list[]) {
 }
 
 
-static void scanopt_define_option(option_t *item, char *value) {
+static void scanopt_define_option(option_t *item, char *value, option_t option_list[]) {
   // Update the 'value' base up
   //   case
   //      required_multiple: copy value    to item->value
@@ -437,23 +437,19 @@ static void scanopt_define_option(option_t *item, char *value) {
   //      none:              nothing       but address SET/UNSET
 
   switch(SO_ARG_TYPE(item->type)) {
-    case SO_ARG_NONE:
+    case SO_ARG_NONE: 
+      {
+         int type = SO_VAL_TYPE(item->type);
 
-      // Perhaps SET/UNSET has a different type...
-      // for clarity
-      // but then it has a option, but it is implicit...
-      
-      // type = SO_VAL_TYPE(item->type)
-      // if (item->id <0) {
-      //   item = lookup(-(item->id), option_list);
-      // }
-      switch (SO_VAL_TYPE(item->type)) {
-        // this has to be applied to the positive index
-
-        case SO_VAL_SET:      item->value = "1";   break;
-        case SO_VAL_UNSET:    item->value = "0";   break;
+         if (item->id < 0) {
+          item = scanopt_find(-(item->id), option_list);
+         }
+         switch (type) {
+           case SO_VAL_SET:      item->value = "1";   break;
+           case SO_VAL_UNSET:    item->value = "0";   break;
+           default:              assert(false);       break;
+         }
       }
-
     case SO_ARG_OPTIONAL:
       if (value == NULL)
         item->value = item->defaultValue;
@@ -511,7 +507,7 @@ static void scanopt_apply_env(option_t option_list[]) {
       if (value != NULL) {
         item->count++;
         optcount ++;
-        scanopt_define_option(item, value);
+        scanopt_define_option(item, value, option_list);
       }
     }
   }

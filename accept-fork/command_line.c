@@ -31,11 +31,11 @@ static option_t option_list[] = {
   {o_DOCUMENTS,  "documents",  "d",       required_argument},
   {o_FOREGROUND, "foreground", "f",       no_argument},
   {o_HELP,       "help",       "h",       no_argument},
-  {o_LOG,        "log",        "l",       required_argument},
+  {o_ERROR_LOG,  "error_log",  "l",       required_argument},
   {o_PORT,       "port",       "p",       required_argument},
-  {o_SOCKET,     "socket",     "s",       required_argument},
-  {o_UDS,        "uds",        NULL,      required_argument},
-  {o_EXEC,       "exec",       "e",       required_argument},
+  {o_SOCKET,     "socket",     NULL,      no_argument},
+  {o_UDS,        "uds",        NULL,      no_argument},
+  {o_SCRIPT,     "script",     NULL,      required_argument},
   {o_WORKERS,    "workers",    "w",       required_argument},
   {o_USER,       "user",       "u",       no_argument},
   {o_VERBOSE,    "verbose",    "v",       no_argument},
@@ -46,83 +46,51 @@ static option_t option_list[] = {
 // The following are variables related to options. There
 // values are set via `process_cli_options` and used with `main`
 
-char * server_ip;
-char * document_root;
-int    foreground_flag;
-char * port = NULL;
-int    port_num = 0;
+char * server_ip       = NULL;
+int    port            = 0;
+
+char * document_root   = DEFAULT_DOCUMENT_FILE;
+char * log_file        = DEFAULT_ERROR_FILE;
+
 char * scriptname;
-char * socket_file = NULL;
+int    socket_flag     = UNSET;
 int    user;
-int    verbose_flag;
-int    workers;
-int    help_flag;
-int    version_flag;
+int    foreground_flag = UNSET;
+int    verbose_flag    = UNSET;
+int    workers         = DEFAULT_WORKERS;
+int    help_flag       = UNSET;
+int    version_flag    = UNSET;
 
 
 static void print_version();
 static void print_usage(option_t option_list[]);
 static void print_usage_header();
-static int strprefix(char *prefix, char * str);
 
 // calling function:
-static char * parse_config_file(int argc, char **argv, char *home);
 static void source_config_file(char * filename);
 ///
 static int parse_options(int argc, char *argv[]);
 
 
-////////////////////////////////////////////
-// COMMAND LINE and ENV PROCESSING
-// 
-//   scgi [ --conf[=file ]]
-//
-//     1. special case for using the --conf option
-//        - if present, it must be the only option
-//        - it is implicitly present, if the command line is empty
-//
-//   scgi [options] ( --port=<number> | --socket=<filename> ) [ exec ]
-//
-//      2. normal processing of the command line for options
-//         - i.e., the `[ exec ]` component is handled in step 4.
-//   
-//   scgi [--version | --help ] [ ignored ]
-//
-//      3. special case with use of --version and --help
-//         - regardless of the composition of the command line
-//         - if the --version or --help is present: 
-//
-// 4. check if there is only one parameter left ( [ exec ] )
-//
+extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
 
-
-extern void set_command_line_options(int argc, char *argv[], char *scgi_home) {
-
-  char config_file[FILENAME_MAX];
   int num_options;
 
+  if (argc == 1) {
+    // the command line is empty, hence invoke the config file.
+    char config_file[FILENAME_MAX];
 
-  // 1. Get the name of the config file from the command line, and source it
-  strlcpy(config_file, scgi_home, FILENAME_MAX);
-  if (parse_config_file(argc, argv, config_file) != NULL) {
+    strlcpy(config_file, scgi_dir, FILENAME_MAX);
+    strlcat(config_file, DEFAULT_CONFIG_FILE, FILENAME_MAX);
     source_config_file(config_file);
-    //scanopt_apply_env();
-    argc = 0;
-    argv[0] = NULL;
-  }
+  } 
 
-
-  // 2. Process the Command Line Options, which include environment variables
   num_options = parse_options(argc, argv);
-
-  // 3. Note that if the special case of either --version or --help was detected,
-  //    the above parse_command_line handled it with exit(0) performed.
-  //    : scgi  --version --help
 
   // 4. Check if any command line parameters exist for '[ exec ]'
   switch (argc - num_options) {
     case 0:
-      // The command line is effectively empty.
+      // There are no arguments to the command
       break;
 
     case 1:
@@ -165,35 +133,6 @@ extern void set_command_line_options(int argc, char *argv[], char *scgi_home) {
 }
 
 
-char * parse_config_file(int argc, char **argv, char *home) {
-
-  char *filename = NULL;
-
-  switch (argc) {
-    case 1:   // Command Line:  argv[0]
-      strlcat(home, "/conf", FILENAME_MAX);
-      filename = home;
-      break;
-
-    case 2:   // Command Line:   argv[0] --conf=filename
-      if (strprefix("--conf=", argv[1])) {
-        filename = index(argv[1], '=') + 1;
-      }
-      break;
-
-    case 3:   // Command Line:   argv[0] --conf filename
-      if (strcmp("--conf", argv[1]) == 0) {
-        filename = argv[2];
-      }
-      break;
-
-    default:
-      break;
-  }
-
-  return filename;
-}
-
 
 void source_config_file(char * filename) {
   ////////////////////////////////////////////
@@ -234,7 +173,7 @@ void print_version() {
 
 void print_usage_header() {
   fprintf(stdout, "\nUsage:\n");
-  fprintf(stdout, "scgid [options] ( --port <number> | --socket <file> ) [ program ]\n");
+  fprintf(stdout, "scgid [options] ( --port <number> | --socket ) [ program ]\n");
   fprintf(stdout, "scgid [ --version ] [ --help ] [ ignored ]\n");
   fprintf(stdout, "scgid [ --conf <file> ]\n");
   fprintf(stdout, "\n");
@@ -272,11 +211,12 @@ extern int parse_options(int argc, char *argv[]) {
     switch (option_id) {
 
       case o_CONF:
-         // This option is handled as a special case.
-         // Hence, it should not appear in this general case.
-         fprintf(stderr, "--config must be the only command line option\n");
-         exit(1);
-         break;
+        if (optcount > 1) {
+          fprintf(stderr, "--config must be the only command line option\n");
+           exit(1);
+        }
+        source_config_file(optarg);
+        break;
 
       ///////////////////////////////////////////////////
       //  Script Related Options
@@ -300,7 +240,7 @@ extern int parse_options(int argc, char *argv[]) {
         document_root = optarg;
         break;
 
-      case o_EXEC:
+      case o_SCRIPT:
         // Validation of scriptname is deferred
         // scriptname may be the first (and only) argument
         scriptname = optarg;
@@ -329,8 +269,8 @@ extern int parse_options(int argc, char *argv[]) {
 
       case o_WORKERS:
         workers = atoi(optarg);    /// CONVERSION
-        if (workers < 0 || workers > WORKERS_MAX) {
-          workers = WORKERS_DEFAULT;
+        if (workers < 0 || workers > MAX_WORKERS) {
+          workers = DEFAULT_WORKERS;
           fprintf(stderr, "Number of workers out of range, setting to %d\n", workers);
         }
         break;
@@ -350,12 +290,12 @@ extern int parse_options(int argc, char *argv[]) {
 
       ///////////////////////////////////////////////////
       // Logging Related Options
-      case o_LOG:
+      case o_ERROR_LOG:
         {
           FILE * fp;
           fp = freopen(optarg, "w", stderr);
           if (fp == 0) {
-            perror("Unable to open logfile\n");
+            perror("Unable to open error logfile\n");
           }
         }
         break;
@@ -368,7 +308,7 @@ extern int parse_options(int argc, char *argv[]) {
       ///////////////////////////////////////////////////
       // Network Related Options
       case o_BIND:
-        if (socket_file != NULL) {
+        if (socket_flag == SET) {
           fprintf(stderr, "Illegal use of both --bind and --socket options.\n");
           print_usage_header();
           exit(1);
@@ -386,24 +326,24 @@ extern int parse_options(int argc, char *argv[]) {
         break;
 
       case o_PORT:
-        if (socket_file != NULL) {
+        if (socket_flag == SET) {
           fprintf(stderr, "Illegal use of both --port and --socket\n");
           exit(1);
         }
-        port = optarg;
-        port_num = atoi(optarg);  // need to convert
+        port = atoi(optarg);  // need to convert
         break;
 
       case o_SOCKET:
+      case o_UDS:
         if (server_ip != NULL) {
           fprintf(stderr, "Illegal use of both --bind and --socket\n");
           exit(1);
         }
-        if (port != NULL) {
+        if (port != 0) {
           fprintf(stderr, "Illegal use of both --port and --socket\n");
           exit(1);
         }
-        socket_file = optarg;
+        socket_flag = SET;
 
         break;
 
@@ -428,7 +368,7 @@ extern int parse_options(int argc, char *argv[]) {
 
   // Sanity checks:
   //  1. must have either socket or port
-  if (port == NULL && socket_file == NULL) {
+  if (port == 0 && socket_flag == UNSET) {
     fprintf(stderr, "Either the --port or the --socket option needs to be provided.\n");
     print_usage_header();
     exit(1);
@@ -439,16 +379,4 @@ extern int parse_options(int argc, char *argv[]) {
 }
 
 
-
-
-static int strprefix(char *prefix, char * str) {
-   // returns true if str is equivalent to prefix....
-   int c;
-   for (c = 0; prefix[c] != '\0'; c++) {
-     if (str[c] == '\0') break;
-     if (prefix[c] != str[c]) break;
-   }
-
-   return (prefix[c] == '\0');
-}
 
