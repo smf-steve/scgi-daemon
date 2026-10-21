@@ -44,10 +44,17 @@ Major difference is our versions popt/getopt..
 #include <stdbool.h>
 
 
-
+#include "getopt.h"
 #include "scanopt.h"
 
-opt_value_t opt_value;
+
+extern int    optreset;
+extern int    optind;
+extern char   *optarg;
+int optmax;
+int optcount;
+
+opt_value_t optvalue;
 
 // To implement:
 
@@ -71,11 +78,8 @@ extern void  scanop_opt_add_type(option_t item, int type);
 
 
 
-extern int scanopt_arg_default;
-int scanopt_arg_default = SO_ARG_DEFAULT;
-
 static void scanopt_apply_env(option_t option_list[]);
-static void scanopt_first_use(option_t *item, char *value);
+static void scanopt_define_option(option_t *item, char *value);
 
 static int number_of_options(option_t option_list[]);
 
@@ -228,16 +232,21 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
     // >256  : Long Options
     if (ch <= 0xff) {   // ShortOp was provided by the user
       switch (ch) {
+
+        // If there is an error, should we return: SO_ID_ERROR
+
         case ':':       // missing argument  (58) (0x3a)
           fprintf(stderr, "Missing argument for: %s\n", argv[optind-1]);
           continue;      // or we are don with the loop?
           //return optind;
           break;
+
         case '?':       // ambigous option   (63) (0x3f)
           fprintf(stderr, "Unknown option: %s\n", argv[optind-1]);
           continue;     // or we are don with the loop?
           //return optind;
           break;
+
         default:
           item = scanopt_find_shortName(ch, option_list);
           ch = item->id;
@@ -254,7 +263,8 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
     //////////////////////////////////////////////
     // First use of the option
     if (item->count == 1) {
-      scanopt_first_use(item, optarg);
+      optcount ++;
+      scanopt_define_option(item, optarg);
       continue;
     }
 
@@ -269,7 +279,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
         break;
 
       case SO_DUP_OVERWRITE:
-        scanopt_first_use(item, optarg);
+        scanopt_define_option(item, optarg);
         break;
 
       case SO_DUP_IGNORE:
@@ -417,7 +427,7 @@ extern option_t *scanopt_find_shortName(int ch, option_t option_list[]) {
 }
 
 
-static void scanopt_first_use(option_t *item, char *value) {
+static void scanopt_define_option(option_t *item, char *value) {
   // Update the 'value' base up
   //   case
   //      required_multiple: copy value    to item->value
@@ -429,7 +439,17 @@ static void scanopt_first_use(option_t *item, char *value) {
   switch(SO_ARG_TYPE(item->type)) {
     case SO_ARG_NONE:
 
+      // Perhaps SET/UNSET has a different type...
+      // for clarity
+      // but then it has a option, but it is implicit...
+      
+      // type = SO_VAL_TYPE(item->type)
+      // if (item->id <0) {
+      //   item = lookup(-(item->id), option_list);
+      // }
       switch (SO_VAL_TYPE(item->type)) {
+        // this has to be applied to the positive index
+
         case SO_VAL_SET:      item->value = "1";   break;
         case SO_VAL_UNSET:    item->value = "0";   break;
       }
@@ -456,23 +476,25 @@ extern void scanopt_initialize(option_t option_list[]) {
   //   initializes the working data
 
   option_t item;
+  extern int optmax;
 
-  for (int i = 0; option_list[i].id != 0; i++) {
-    item = option_list[i];
+  for (optmax = 0; option_list[optmax].id != 0; optmax++) {
+    item = option_list[optmax];
 
     if (item.id < 0) continue;
 
     // Initialize working data!
     item.value = NULL;
-    for(int j = 0; j < SO_DUP_MAX; j++) {
-      if (item.valueArray[j] == NULL)  break;
-      item.valueArray[j] = NULL;
+    for(int i = 0; i < SO_DUP_MAX; i++) {
+      if (item.valueArray[i] == NULL)  break;
+      item.valueArray[i] = NULL;
     }
     item.count = 0;
 
     // for _SET and _UNSET must there be an initial value, use.
     item.value = item.initValue;
   }
+  return;
 }
 
 static void scanopt_apply_env(option_t option_list[]) {
@@ -488,7 +510,8 @@ static void scanopt_apply_env(option_t option_list[]) {
       char *value = getenv(item->envName);
       if (value != NULL) {
         item->count++;
-        scanopt_first_use(item, value);
+        optcount ++;
+        scanopt_define_option(item, value);
       }
     }
   }
@@ -520,7 +543,7 @@ extern int scanopt_next(option_t option_list[]) {
     //   switch (flag) {
 
     //     case SO_OPTIONS_NOVAR:
-    //       if (item.flag != NULL);
+    //       if (item.variable != NULL);
     //         continue;
     //       // merge;
 
@@ -542,20 +565,27 @@ extern int scanopt_next(option_t option_list[]) {
     if (item.id == 0)   return -1;
     if (item.count > 0) break;
 
-    // For unused compliments, use the SO_VAL_SET to determine what to return
+// The positive id holds the value
+// Hence, if we have a negative value, 
+    // item.value = lookup(- item.id).value
+    // item.type  = as it is
+    // break;
+
+    //-- lookup the 
+    // For unused complements, use the SO_VAL_SET to determine what to return
     if (SO_VAL_TYPE(item.type) == SO_VAL_SET)   break;
     if (SO_VAL_TYPE(item.type) == SO_VAL_UNSET) continue;
   } while (true);
 
 //   at least one of them has been used.
 //   if item.type == SO_VAL_SET    && item.value == "1"
-//     return item.index
+//     return item.id
 //   if item.type == SO_VAL_SET    && item.value == "0"
-//     return - item.index
+//     return - item.id
 //   if item.type == SO_VAL_UNSET  && item.value == "1"
-//     return item.index
+//     return item.id
 //   if item.type == SO_VAL_UNSET  && item.value == "0"
-//     return - item.index
+//     return - item.id
 
 
   optarg = item.value;
@@ -563,25 +593,25 @@ extern int scanopt_next(option_t option_list[]) {
   // optopt = item.shortName[0];  // does not make sense
 
   switch (SO_VAL_TYPE(item.type)) {
-   case SO_VAL_TEXT:   opt_value.sVal = item.value; break;
+   case SO_VAL_TEXT:   optvalue.sVal = item.value; break;
    case SO_VAL_SET:
    case SO_VAL_UNSET:
-   case SO_VAL_INT:    opt_value.iVal = (int) atoi(item.value); break;
-   case SO_VAL_LONG:   opt_value.lVal = (long) atoi(item.value); break;
-   case SO_VAL_FLOAT:  opt_value.fVal = (float) atof(item.value); break;
-   case SO_VAL_DOUBLE: opt_value.dVal = (float) atof(item.value); break;
-   case SO_VAL_ARRAY:  opt_value.aVal = item.valueArray; break;
+   case SO_VAL_INT:    optvalue.iVal = (int) atoi(item.value); break;
+   case SO_VAL_LONG:   optvalue.lVal = (long) atoi(item.value); break;
+   case SO_VAL_FLOAT:  optvalue.fVal = (float) atof(item.value); break;
+   case SO_VAL_DOUBLE: optvalue.dVal = (float) atof(item.value); break;
+   case SO_VAL_ARRAY:  optvalue.aVal = item.valueArray; break;
   }
-  if (item.flag != NULL) {
+  if (item.variable != NULL) {
     switch (SO_VAL_TYPE(item.type)) {
-      case SO_VAL_TEXT:   (* (char **)item.flag) = opt_value.sVal; break;
+      case SO_VAL_TEXT:   (* (char **)item.variable) = optvalue.sVal; break;
       case SO_VAL_SET:
       case SO_VAL_UNSET:
-      case SO_VAL_INT:    (* (int *)item.flag) = opt_value.iVal; break;
-      case SO_VAL_LONG:   (* (int *)item.flag) = opt_value.lVal; break;
-      case SO_VAL_FLOAT:  (* (float *)item.flag) = opt_value.fVal; break;
-      case SO_VAL_DOUBLE: (* (double *)item.flag) = opt_value.dVal; break;
-      case SO_VAL_ARRAY:  (* (char ***)item.flag) = opt_value.aVal; break;
+      case SO_VAL_INT:    (* (int *)item.variable) = optvalue.iVal; break;
+      case SO_VAL_LONG:   (* (int *)item.variable) = optvalue.lVal; break;
+      case SO_VAL_FLOAT:  (* (float *)item.variable) = optvalue.fVal; break;
+      case SO_VAL_DOUBLE: (* (double *)item.variable) = optvalue.dVal; break;
+      case SO_VAL_ARRAY:  (* (char ***)item.variable) = optvalue.aVal; break;
 
     }
   }

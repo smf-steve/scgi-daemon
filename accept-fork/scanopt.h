@@ -1,74 +1,119 @@
+#include <getopt.h>
 
-extern char *optarg;
-extern int optind;
-extern int optopt;
-extern int opterr;
-extern int optreset;
+// From getopt.h, that is exposed to the user of scanopt
 
+// #define required_argument  SO_ARG_REQUIRED
+// #define optional_argument  SO_ARG_OPTIONAL
+// #define no_argument        SO_ARG_NONE
+
+// extern char *optarg;
+// extern int optind;
+// extern int optopt;
+// extern int opterr;
+// extern int optreset;
+// extern opt_value_t optvalue;   // Added for scanopt
+// extern int optmax;             // Added for scanopt: max number of options to define
+// extern int optcount;           // Added for scanopt: number of options defined
+
+
+////////////////////////////////////////////////////////////////////////
+// Scanopt is a library that aids in the process of
+// managing command line options. Each command line
+// option has there a three major properties:
+//
+//   1. the arguement type: required, optional, and none
+//   1. the value type:     text, set and unset (for flags), and then
+//                          int, long, float, and double.
+//
+//   1. the duplicative mode: overwrite, error, ignore, and append
+//      overwrite give priority to the last definition
+//      ignore gives priority to the first definition
+//      append creates a list of options
+//
+//  Scanopt extends the functionality of `getopt`, which it uses
+//  under the covers.  We have extended `getopt` by allowing the 
+//  automatic conversion of a command line option to a specific type.
+//  (The types are limited to C basic types.)  We have also included
+//  the functionality to manage duplicative usage of types on the 
+//  command line. 
+//
+
+// 1. The three argument types are defined consistent with `getopt`
+#define SO_ARG_TYPE(var)   (var & 0x000f)
 #define SO_ARG_NONE        (0x000)
 #define SO_ARG_REQUIRED    (0x001)
 #define SO_ARG_OPTIONAL    (0x002)
-#define SO_ARG_TYPE(var)   (var & 0x000f)
-
-// Each command line option has three major properties.
-// 1. the arguement type: required, optional, and none
-// 1. the value type:     text, set and unset (for flags), and then
-//                        int, long, float, and double.
-//
-// 1. the duplicative mode: overwrite, error, ignore, and append
-//    overwrite give priority to the last definition
-//    ignore gives priority to the first definition
-//    append creates a list of options
-
-#define SO_OPTIONS_RETRIEVE_DEFINED (0)
-#define SO_OPTIONS_RETRIEVE_NOVAR   (1)   // only those defined, but no var
-#define SO_OPTIONS_RETRIEVE_ALL     (2)
 
 
-#define SO_VAL_TEXT        (0x000)
-#define SO_VAL_SET         (0x010)  // set the value to 1
-#define SO_VAL_UNSET       (0x020)  // clear the value to 0
+// 1. The supported type for the argument associated with an option
+#define SO_VAL_TYPE(var)   (var & 0x00f0)
+#define SO_VAL_TEXT        (0x000)  // the default
+#define SO_VAL_SET         (0x010)  // sets the value to 1
+#define SO_VAL_UNSET       (0x020)  // clears the value to 0
 #define SO_VAL_INT         (0x030)  // conversion done at the end
 #define SO_VAL_LONG        (0x040)  // conversion done at the end
 #define SO_VAL_FLOAT       (0x050)  // conversion done at the end
 #define SO_VAL_DOUBLE      (0x060)  // conversion done at the end
-#define SO_VAL_ARRAY       (0x070)
-#define SO_VAL_TYPE(var)   (var & 0x00f0)
+#define SO_VAL_ARRAY       (0x070)  // an array of strings
 
+// Two value types are supported to address common functionality:
+//   The SET/UNSET type is provided a Boolean type to support flags
+//   The type can also be used to convientely support complements.
+//   E.g., the `-i` (inquiry) and `-f` (force) option to the `rm` utility
+//
+//   The ARRAY type is used to support options that maybe processed,
+//   in total, before or after another option. For example, the `http`
+//   utility defines a `-C` option and a `-c` options.  Both of these
+//   options can appear multiple times on the command-lined, with all
+//   `-C` arguments applied before applying all directives with the
+//   configuration file (`-f config`).  Then the `-c` arguments are 
+//   are applied there after.  As such, the `-C` and `-c` values are
+//   an array of arguments.
+//
+
+// 1. the duplicative mode to address multiple uses of an option.
+#define SO_DUP_TYPE(var)   (var & 0x0f00)
 #define SO_DUP_OVERWRITE   (0x000)  // Use the LAST value associates with an option (DEFAULT)
 #define SO_DUP_IGNORE      (0x100)  // Use the First value assoicated with an option
 #define SO_DUP_APPEND      (0x200)  // Append the value so all duplicates can be   (presumes )
 #define SO_DUP_ERROR       (0x300)  // Emit an error upon a duplicate option
-#define SO_DUP_TYPE(var)   (var & 0x0f00)
-
-
 #define SO_DUP_MAX         (20)     // Maximum number of values that can be appended
-#define SO_ARG_ERROR       (0xF000)
-#define SO_ARG_DEFAULT     (SO_ARG_REQUIRED | SO_VAL_TEXT | SO_DUP_OVERWRITE)
-extern int scanopt_arg_default;
 
 
-// Synonym is when there are multiple names for the same option
-#define SO_SYNONYM(x)    (-x)
+// Defaults for 
+#define SO_ARG        (SO_ARG_REQUIRED | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
+#define SO_OPTIONAL   (SO_ARG_OPTIONAL | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
+#define SO_NONE       (SO_ARG_NONE     | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
+#define SO_FLAG       (SO_ARG_NONE     | SO_VAL_SET   | SO_DUP_OVERWRITE)
+#define SO_NFLAG      (SO_ARG_NONE     | SO_VAL_UNSET | SO_DUP_OVERWRITE)
+#define SO_APPEND     (SO_ARG_REQUIRED | SO_VAL_TEXT  | SO_DUP_APPEND)
+
+
+// During the final processing stage `scanopt_next`, you can specify 
+// whether or not your want to retrieve only those options that have
+// appeared on the command line or _all_ options.   (Note that if an
+// options is defined via an environment variable, it is defined 
+// implicitly on the command line.)  You may also retrieve only those
+// options that have been defined and were NOT automatically assigned
+// to a variable.
+//
+// Each of these options exist to reduce the size of the switch statement
+// that is typically used to inconjection with `scanopt_next` to improve
+// readibilty. 
+
+#define SO_OPTIONS_RETRIEVE_DEFINED  (0)
+#define SO_OPTIONS_RETRIEVE_ALL      (1)
+#define SO_OPTIONS_RETRIEVE_NOVAR    (2)   // only those defined, but no var
+
+#define SO_ID_ERROR     (0xffff)
+#define SO_OPTIONS_END() {0}
 
 // Compliments are, e.g., flags that are opposite, e.g., rm -f -i
 #define SO_COMPLEMENT(x) (-x)
 
-// Alias is a single option that expands into one or more other options
-// We don't support such alias (at this time)
-// Current thinking is that a separate table needs to be maintained
-//   if option is an alias then look up the definition
-//   then update each of those options in turn
-
-
 // Use the following to support literal defintion of an option_t;
 #define  SO_OPTION_END()  { 0 }
 
-
-// Reserved for backward compatability with getopt
-#define SO_ID_COLON     (0xffff)
-#define SO_ID_QUESTION  (0xffff)
-#define SO_ID_ERROR     (0xffff)
 
 typedef union _opt_value_t {
   char * sVal;
@@ -79,7 +124,9 @@ typedef union _opt_value_t {
   char **aVal;
 } opt_value_t;
 
-extern opt_value_t opt_value;
+extern opt_value_t optvalue;
+extern int optcount;
+extern int optmax;
 
 typedef struct _option_t {
   // MVP
@@ -96,7 +143,7 @@ typedef struct _option_t {
   char     *envName;
 
   // New Stuff
-  void     *flag;           // pointer to the appropriate type in which the final value is stored
+  void     *variable;      // pointer to the appropriate type in which the final value is stored
   char     *initValue;
   char     *defaultValue;
 
