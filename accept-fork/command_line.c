@@ -19,6 +19,10 @@ static char *version_string = "0.1";
 #define SET (1)
 #define UNSET (0)
 
+#define DEFAULT_CONFIG_FILE   "config"
+#define DEFAULT_WORKERS (5)
+#define MAX_WORKERS (15)
+
 
 //# SO_ARG_TYPE(otype, type, duplicative);
 //# SO_ARG_TYPE(required, text, error);
@@ -28,10 +32,8 @@ static option_t option_list[] = {
 // id,           longName,     shortName, argType
   {o_BIND,       "bind",       "b",       required_argument},
   {o_CONF,       "config",     NULL,      required_argument},
-  {o_DOCUMENTS,  "documents",  "d",       required_argument},
   {o_FOREGROUND, "foreground", "f",       no_argument},
   {o_HELP,       "help",       "h",       no_argument},
-  {o_ERROR_LOG,  "error_log",  "l",       required_argument},
   {o_PORT,       "port",       "p",       required_argument},
   {o_SOCKET,     "socket",     NULL,      no_argument},
   {o_UDS,        "uds",        NULL,      no_argument},
@@ -48,9 +50,6 @@ static option_t option_list[] = {
 
 char * server_ip       = NULL;
 int    port            = 0;
-
-char * document_root   = DEFAULT_DOCUMENT_FILE;
-char * log_file        = DEFAULT_ERROR_FILE;
 
 char * scriptname;
 int    socket_flag     = UNSET;
@@ -221,25 +220,6 @@ extern int parse_options(int argc, char *argv[]) {
       ///////////////////////////////////////////////////
       //  Script Related Options
 
-      case o_DOCUMENTS:
-        // We could move the test for is directory
-        // when we build the final scriptname
-        //
-        {
-          struct stat stats;
-
-          if (stat(optarg, &stats) != 0) {
-            perror("document value is not a valid filename");
-            exit(1);
-          }
-          if (S_ISDIR(stats.st_mode) != 0) {
-            perror("document value is not a valid directory");
-            exit(1);
-          }
-        }
-        document_root = optarg;
-        break;
-
       case o_SCRIPT:
         // Validation of scriptname is deferred
         // scriptname may be the first (and only) argument
@@ -287,18 +267,6 @@ extern int parse_options(int argc, char *argv[]) {
          version_flag = SET;
          // This can be handled via a scanopt variable
          break;
-
-      ///////////////////////////////////////////////////
-      // Logging Related Options
-      case o_ERROR_LOG:
-        {
-          FILE * fp;
-          fp = freopen(optarg, "w", stderr);
-          if (fp == 0) {
-            perror("Unable to open error logfile\n");
-          }
-        }
-        break;
 
       case o_VERBOSE:
         verbose_flag = SET;

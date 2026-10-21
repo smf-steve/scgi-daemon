@@ -23,11 +23,9 @@
 /* COMMAND LINE OPTIONS */
 #define  o_BIND       (1)
 #define  o_CONF       (2)
-#define  o_DOCUMENTS  (3)
 #define  o_SCRIPT     (4)
 #define  o_FOREGROUND (5)
 #define  o_HELP       (6)
-#define  o_ERROR_LOG  (7)
 #define  o_PORT       (8)
 #define  o_SOCKET     (9)
 #define  o_UDS       (10)
@@ -40,23 +38,14 @@
 #define UNSET (0)
 
 
-#define DEFAULT_CONFIG_FILE   "config"
-#define DEFAULT_PID_FILE      "pid"
-#define DEFAULT_ERROR_FILE    "error.log"
-#define DEFAULT_DOCUMENT_FILE "cgi"
-#define DEFAULT_SOCKET_FILE   "socket"
-
-#define DEFAULT_WORKERS (5)
-#define MAX_WORKERS (15)
 
 // The following are variables that are defined via command line processing.
 extern char * server_ip;
-extern char * document_root;
-extern int    foreground_flag;
 extern int    port;
 extern char * scriptname;
 extern int    socket_flag;
 extern int    user;
+extern int    foreground_flag;
 extern int    verbose_flag;
 extern int    workers;
 extern int    help_flag;

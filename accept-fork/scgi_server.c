@@ -16,6 +16,12 @@
 #include "command_line.h"
 
 
+#define PID_FILE      "pid"
+#define ERROR_FILE    "error.log"
+#define DOCUMENT_FILE "cgi"
+#define SOCKET_FILE   "socket"
+
+
 #define MAX_ENVS (50)
 
 extern void set_command_line_options(int argc, char *argv[], char *home);
@@ -84,32 +90,28 @@ int main(int argc, char *argv[], char **envp) {
   // these are the values that are related to scgi_dir
 
   set_command_line_options(argc, argv, scgi_dir);
-  
-  // set_command_line options
-     // values that might be set
-     // config
-     // document_root
-     // error_file
-     // socket_file -- why does the user need to define the socket file
-     //   -- they should only be to say use uds or inet socket
-
-  chdir(scgi_dir);
-
-
-
-
-  //////////////////////////////////////////////////
-  // Set things up.. Open files, etc.
 
   if (foreground_flag == false) {
     pid = fork();
-    if (pid == 0) {
+    if (pid != 0) {
       // child
       // daemonize();
     } else {
       exit(1);
     }
   }
+
+  chdir(scgi_dir);
+
+  // open logfile
+  // set upser
+  // create socket, etc
+
+    FILE * fp;
+    fp = freopen(optarg, "w", stderr);
+    if (fp == 0) {
+         perror("Unable to open error logfile\n");
+    }
 
 
   // Setup the Socket
@@ -134,10 +136,8 @@ int main(int argc, char *argv[], char **envp) {
   }
 
   
-
   bind_p(socket_fd, (struct sockaddr *) &socket_in, len);
   listen_p(socket_fd, 0);
-
 
   do {
     // Accept a connection
@@ -157,8 +157,14 @@ int main(int argc, char *argv[], char **envp) {
       //scgi_read2env(STDIN_FILENO, envp, MAX_ENVS);
       // Do I need to add anything to the envp list
 
+      /////////////////////////////////////////////////////////
       // File Processing
 
+
+
+
+
+      /////////////////////////////////////////////////////////
       execle("/bin/cat", "cat", NULL, envp);
 
       //scgi_free_env_buffer(envp);
