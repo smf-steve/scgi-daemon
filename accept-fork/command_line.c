@@ -240,7 +240,7 @@ extern int parse_options(int argc, char *argv[]) {
 
             record = getpwnam(optarg);
             if (record == NULL) {
-              fprintf(stderr, "Invalid user assocated with --user\n");
+              fprintf(stderr, "Invalid user associated with --user\n");
               exit(1);
             }
             user = record->pw_uid;

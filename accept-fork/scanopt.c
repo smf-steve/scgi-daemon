@@ -6,13 +6,13 @@
 Major difference is our versions popt/getopt..
   - we don't try to keep the return value as the shortName char
     - we return an INDEX value to a structure
-  - we don't try to store info into a varialbe
+  - we don't try to store info into a variable
     - we allow/require the user to put the process value there...
   - option types include: required, option, none (as usually)
   - argument types include:  text, int, long, float, & double
   - argument types include the ability to deal with duplicates
     - supports the http approach of -c & -C
-  - we have alias/synonmyses
+  - we have alias/synonym
   - we have opposites:  e.g., --force, --inquire
   - we define default values
   - we incorporate Env Variable into the process
@@ -23,7 +23,7 @@ Major difference is our versions popt/getopt..
 
 // PREMISE:  an option set via an env is just like setting on the cli
 //          but this allows for CONFIG file to be used
-//          but this also allows simplier control per user
+//          but this also allows simpler control per user
 
 
 
@@ -88,22 +88,22 @@ static int number_of_options(option_t option_list[]);
 extern void scanopt_validate(option_t option_list[]) {
    // must have at least a longName or shortName
    // shortName is a single character
-   // shortname does not use ':' nor '?'
+   // shortName does not use ':' nor '?'
    // check id < 0
-   //   -- SO_SYNONYM:     SO_ARG_NONE with SO_VAL_TEXT (i.e., the defualt)
+   //   -- SO_SYNONYM:     SO_ARG_NONE with SO_VAL_TEXT (i.e., the default)
    //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SO_VAL_UNSET
 
    // NOT checked: if (id > 0), it is unique within the option_list
 
    // move this to initialize: if SO_VAL_SET or SET_VAL_UNSET is provided,
-   //    it must have an inital, or it should be  "0" "1"  respectively
+   //    it must have an initial, or it should be  "0" "1"  respectively
    
    // default value is ONLY associated with a option_argument
-   //  no_aurgment,     SET | UNSET, initial value
+   //  no_argument,     SET | UNSET, initial value
    //  option_argument, *,           initial value, default value
    //  required_value,  *,           initial value
  
-   /// shuld we flip the order of execution of:  validate &
+   /// should we flip the order of execution of:  validate &
 
  option_t *item;
  option_t *root_item;
@@ -241,7 +241,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
           //return optind;
           break;
 
-        case '?':       // ambigous option   (63) (0x3f)
+        case '?':       // ambiguous option   (63) (0x3f)
           fprintf(stderr, "Unknown option: %s\n", argv[optind-1]);
           continue;     // or we are don with the loop?
           //return optind;
@@ -268,7 +268,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
       continue;
     }
 
-    // Issue if Dup mode is APPEND, we have already copy the value
+    // Issue if DUP mode is APPEND, we have already copy the value
 
     ///////////////////////////////////////////////
     // Subsequent use of the option
@@ -379,8 +379,8 @@ extern void scanopt_usage(option_t option_list[]){
 
  /*
   Process:
-    0. define the structure [passed as a paramater]
-    // ! 1. normailize the command line
+    0. define the structure [passed as a parameter]
+    // ! 1. normalize the command line
     2. if optreset == 1
        - optreset = 0;
        - update all generic variables, e.g., optind
@@ -437,7 +437,7 @@ static void scanopt_define_option(option_t *item, char *value, option_t option_l
   //      none:              nothing       but address SET/UNSET
 
   switch(SO_ARG_TYPE(item->type)) {
-    case SO_ARG_NONE: 
+    case SO_ARG_NONE:
       {
          int type = SO_VAL_TYPE(item->type);
 
@@ -655,7 +655,7 @@ void scanopt_optstring(char * opt_string, int length, option_t option_list[]) {
 
 
 void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]) {
-//   // generates the struct option as per the C api
+//   // generates the struct option as per the C API
 //   // no need to create the flag option..
 // but this one generates a warning because of 'struct option' stems from
 // getopt.h

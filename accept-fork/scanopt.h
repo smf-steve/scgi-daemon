@@ -21,7 +21,7 @@
 // managing command line options. Each command line
 // option has there a three major properties:
 //
-//   1. the arguement type: required, optional, and none
+//   1. the argument type: required, optional, and none
 //   1. the value type:     text, set and unset (for flags), and then
 //                          int, long, float, and double.
 //
@@ -45,8 +45,9 @@
 #define SO_ARG_OPTIONAL    (0x002)
 
 
-// 1. The supported type for the argument associated with an option
+// 1. The supported types for the argument associated with an option
 #define SO_VAL_TYPE(var)   (var & 0x00f0)
+#define SO_VAL_NULL        (0x000)
 #define SO_VAL_TEXT        (0x000)  // the default
 #define SO_VAL_SET         (0x010)  // sets the value to 1
 #define SO_VAL_UNSET       (0x020)  // clears the value to 0
@@ -57,24 +58,26 @@
 #define SO_VAL_ARRAY       (0x070)  // an array of strings
 
 // Two value types are supported to address common functionality:
-//   The SET/UNSET type is provided a Boolean type to support flags
-//   The type can also be used to convientely support complements.
-//   E.g., the `-i` (inquiry) and `-f` (force) option to the `rm` utility
+//   The SET/UNSET type is provided as a Boolean type to support
+//   flags. The type can also be used to conveniently support 
+//   complements.
+//      E.g., the `-i` (inquiry) and `-f` (force) option 
+//      associated with the `rm` utility.
 //
-//   The ARRAY type is used to support options that maybe processed,
-//   in total, before or after another option. For example, the `http`
-//   utility defines a `-C` option and a `-c` options.  Both of these
-//   options can appear multiple times on the command-lined, with all
-//   `-C` arguments applied before applying all directives with the
-//   configuration file (`-f config`).  Then the `-c` arguments are 
-//   are applied there after.  As such, the `-C` and `-c` values are
-//   an array of arguments.
+//   The ARRAY type is used to support options that can be processed,
+//   in total, before or after another option. 
+//      E.g., the `http` utility defines a `-C` option and a `-c`
+//      option.  Both of these options can appear multiple times
+//      on the command-lined.  With all `-C` arguments applied
+//      before applying all directives with the configuration file
+//      (`-f config`), then the `-c` arguments are applied thereafter.  
+//      As such, the `-C` and `-c` values are an array of arguments.
 //
 
 // 1. the duplicative mode to address multiple uses of an option.
 #define SO_DUP_TYPE(var)   (var & 0x0f00)
 #define SO_DUP_OVERWRITE   (0x000)  // Use the LAST value associates with an option (DEFAULT)
-#define SO_DUP_IGNORE      (0x100)  // Use the First value assoicated with an option
+#define SO_DUP_IGNORE      (0x100)  // Use the First value associated with an option
 #define SO_DUP_APPEND      (0x200)  // Append the value so all duplicates can be   (presumes )
 #define SO_DUP_ERROR       (0x300)  // Emit an error upon a duplicate option
 #define SO_DUP_MAX         (20)     // Maximum number of values that can be appended
@@ -98,8 +101,8 @@
 // to a variable.
 //
 // Each of these options exist to reduce the size of the switch statement
-// that is typically used to inconjection with `scanopt_next` to improve
-// readibilty. 
+// that is typically used to in conjunction with `scanopt_next` to improve
+// readability.
 
 #define SO_OPTIONS_RETRIEVE_DEFINED  (0)
 #define SO_OPTIONS_RETRIEVE_ALL      (1)
@@ -111,7 +114,7 @@
 // Compliments are, e.g., flags that are opposite, e.g., rm -f -i
 #define SO_COMPLEMENT(x) (-x)
 
-// Use the following to support literal defintion of an option_t;
+// Use the following to support literal definition of an option_t;
 #define  SO_OPTION_END()  { 0 }
 
 
@@ -135,7 +138,7 @@ typedef struct _option_t {
   char     *shortName;      // typically a char, but to be consistent
   int      type;            // REQUIRED | TEXT | ERROR
 
-  // Usage (--help) Informaion
+  // Usage (--help) Information
   char     *description;
   char     *format;         // e.g., "<number>"
 
@@ -178,7 +181,7 @@ extern void  scanopt_add_description(option_t item, char *descript, char *format
 extern void  scanopt_add_environment(option_t item, char *envName);
 extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
 extern void  scanopt_add_variables(option_t item, void *variable);
-extern void  scanop_opt_add_type(option_t item, int type);
+extern void  scanopt_opt_add_type(option_t item, int type);
 
 
 
@@ -191,10 +194,10 @@ extern void scanopt_optstring(char * opt_string, int length, option_t option_lis
 //   prepend ":" to suppress error messages
 //   then have a rule to handle ":+"
 //      ":" silent mode
-//      "+" stop at first nonoption arguement
+//      "+" stop at first non-option argument
 
 extern void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]);
-//   // generates the struct option as per the C api
+//   // generates the struct option as per the C API
 //
 // but this one generates a warning because of 'struct option' stems from
 // getopt.h

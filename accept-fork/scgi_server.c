@@ -44,7 +44,7 @@ extern void set_command_line_options(int argc, char *argv[], char *home);
 // What is the value of recording the children pid.
    // only out-of-bound -- cleanup, ???
 
-// RESTRICTION: only one scgi_deamon per SCGI_HOME
+// RESTRICTION: only one scgi_daemon per SCGI_HOME
 //  SCGI_HOME=... scgi_daemon ....  
 
 
@@ -86,7 +86,7 @@ int main(int argc, char *argv[], char **envp) {
       strlcat(scgi_dir, "/.scgi/", FILENAME_MAX);
     }
   }
-  // set default values that might be overriden by the commandline:
+  // set default values that might be overridden by the command line:
   // these are the values that are related to scgi_dir
 
   set_command_line_options(argc, argv, scgi_dir);
