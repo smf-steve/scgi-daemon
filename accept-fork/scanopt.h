@@ -11,10 +11,9 @@
 // extern int optopt;
 // extern int opterr;
 // extern int optreset;
-// extern opt_value_t optvalue;   // Added for scanopt
 // extern int optmax;             // Added for scanopt: max number of options to define
 // extern int optcount;           // Added for scanopt: number of options defined
-
+// extern opt_value_t optvalue;   // Added for scanopt
 
 ////////////////////////////////////////////////////////////////////////
 // Scanopt is a library that aids in the process of
@@ -80,7 +79,7 @@
 #define SO_DUP_IGNORE      (0x100)  // Use the First value associated with an option
 #define SO_DUP_APPEND      (0x200)  // Append the value so all duplicates can be   (presumes )
 #define SO_DUP_ERROR       (0x300)  // Emit an error upon a duplicate option
-#define SO_DUP_MAX         (20)     // Maximum number of values that can be appended
+#define SO_DUP_MAX         (10)     // Maximum number of values that can be appended
 
 
 // Defaults for 
@@ -96,26 +95,33 @@
 // whether or not your want to retrieve only those options that have
 // appeared on the command line or _all_ options.   (Note that if an
 // options is defined via an environment variable, it is defined 
-// implicitly on the command line.)  You may also retrieve only those
-// options that have been defined and were NOT automatically assigned
-// to a variable.
+// implicitly on the command line.)  If an option did not appear on
+// the command line, it still might have been provided with initial.
+// You may also retrieve only those options that have been defined 
+// and were NOT automatically assigned to a variable.
 //
 // Each of these options exist to reduce the size of the switch statement
 // that is typically used to in conjunction with `scanopt_next` to improve
 // readability.
 
 #define SO_OPTIONS_RETRIEVE_DEFINED  (0)
-#define SO_OPTIONS_RETRIEVE_ALL      (1)
-#define SO_OPTIONS_RETRIEVE_NOVAR    (2)   // only those defined, but no var
+  // options that appeared on the command line or as an ENV variable
+  // but not necessarily those that were provided with an initial value
+
+#define SO_OPTIONS_RETRIEVE_NOVAR    (1)   
+  // excludes those options that have a variable 
+
+#define SO_OPTIONS_RETRIEVE_ALL      (2)
+
 
 #define SO_ID_ERROR     (0xffff)
-#define SO_OPTIONS_END() {0}
 
 // Compliments are, e.g., flags that are opposite, e.g., rm -f -i
 #define SO_COMPLEMENT(x) (-x)
 
 // Use the following to support literal definition of an option_t;
-#define  SO_OPTION_END()  { 0 }
+#define SO_OPTION_END()  { 0 }
+#define SO_OPTIONS_END() { 0 }
 
 
 typedef union _opt_value_t {
@@ -134,16 +140,16 @@ extern int optmax;
 typedef struct _option_t {
   // MVP
   int      id;              // return value from scanopt_next
+  int      type;            // REQUIRED | TEXT | ERROR
   char     *longName;
   char     *shortName;      // typically a char, but to be consistent
-  int      type;            // REQUIRED | TEXT | ERROR
+  char     *envName;
+
 
   // Usage (--help) Information
   char     *description;
   char     *format;         // e.g., "<number>"
 
-  // Env Stuff
-  char     *envName;
 
   // New Stuff
   void     *variable;      // pointer to the appropriate type in which the final value is stored
@@ -152,44 +158,39 @@ typedef struct _option_t {
 
   // Working data:
   char     *value;
-  char     *valueArray[2];   // argv-style array of values
-  // char     *valueArray[SO_DUP_MAX];   // argv-style array of values
+  char     *valueArray[SO_DUP_MAX];   // argv-style array of values
   int      count;                     // command-line reference count
 } option_t;
 
 
 
 // Main APIs
-extern void scanopt_initialize(option_t option_list[]);
-extern int scanopt_scan(int argc, char *argv[], option_t option_list[]);
+extern int   scanopt_scan(int argc, char *argv[], option_t option_list[]);
+extern int   scanopt_next(option_t option_list[]); // int flag);
+extern void  scanopt_usage(option_t option_list[], char *indent);
 
-extern int scanopt_next(option_t option_list[]);
-//extern int scanopt_next(option_t option_list[], int flag);
-
-
-extern void scanopt_usage(option_t option_list[]);
+extern void  scanopt_initialize(option_t option_list[]);
+extern void  scanopt_validate(option_t option_list[]);
 
 
-// DataStructure APIs
-extern void scanopt_validate(option_t option_list[]);
 extern option_t *scanopt_find(int id, option_t option_list[]);
-  // returns the index into option_list
 extern option_t *scanopt_find_shortName(int ch, option_t option_list[]);
+extern option_t *scanopt_find_env(char * env, option_t option_list[]);
 
+extern void scanopt_set_ondup(int value);
 
-extern void  scanopt_add_description(option_t item, char *descript, char *format);
-extern void  scanopt_add_environment(option_t item, char *envName);
-extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
-extern void  scanopt_add_variables(option_t item, void *variable);
-extern void  scanopt_opt_add_type(option_t item, int type);
+extern option_t * scanopt_declare_option(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
 
-
+void scanopt_assign_usage(option_t *item, char *format, char *description);
+void scanopt_assign_flag(option_t *item, void * variable);
+void scanopt_assign_nflag(option_t *item, void * variable);
+void scanopt_assign_variable(option_t *item, void * variable, int type, char *initialVal, char *defaultVal);
 
 
 // // Secondary API
-extern void scanopt_optstring(char * opt_string, int length, option_t option_list[]);
-//   // generates the short form optstring
-//   // "b:c::d:e:fhl:p:s:e:w:vV"
+extern void scanopt_optstring(char *opt_string, int length, option_t option_list[]);
+// generates the short form optstring as per `getopt_long`
+//   e.g., "b:c::d:e:fhl:p:s:e:w:vV"
 //
 //   prepend ":" to suppress error messages
 //   then have a rule to handle ":+"
@@ -197,18 +198,20 @@ extern void scanopt_optstring(char * opt_string, int length, option_t option_lis
 //      "+" stop at first non-option argument
 
 extern void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]);
-//   // generates the struct option as per the C API
-//
-// but this one generates a warning because of 'struct option' stems from
-// getopt.h
-
+// generates the struct option as per `getopt_long`
 
 extern void scanopt_longopt(char *long_string, option_t option_list[]);
-//   // generates the long form optstring as per the command line
-//   // "bind:,documents:foreground, ...."
+// generates the long form optstring as per `getopt` command line
+//   e.g., "flag,required:,optional::, ...."
 
 
 
 
+
+extern void  scanopt_add_description(option_t item, char *descript, char *format);
+extern void  scanopt_add_environment(option_t item, char *envName);
+extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
+extern void  scanopt_add_variables(option_t item, void *variable);
+extern void  scanopt_opt_add_type(option_t item, int type);
 
 
