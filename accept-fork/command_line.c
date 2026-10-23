@@ -27,16 +27,30 @@ static char *version_string = "0.1";
 // The following are variables related to options. Their
 // values set within this file and used with `main`
 
-char * server_ip;       // o_BIND
-int    port;            // o_PORT
-char * filter_name;     // o_FILTER
-int    socket_flag;     // o_SOCKET
-int    user;            // o_USER
-int    foreground_flag; // o_FOREGROUND
-int    verbose_level;   // o_VERBOSE
-int    workers;         // o_WORKERS
-int    help_flag;       // o_HELP
-int    version_flag;    // o_VERSION
+//char * server_ip;       // o_BIND
+//int    port;            // o_PORT
+//char * filter_name;     // o_FILTER
+//int    socket_flag;     // o_SOCKET
+//int    user;            // o_USER
+//int    foreground_flag; // o_FOREGROUND
+//int    verbose_level;   // o_VERBOSE
+//int    workers;         // o_WORKERS
+//int    help_flag;       // o_HELP
+//int    version_flag;    // o_VERSION
+
+// initialize until we finish debugging;
+
+char * server_ip = NULL;    // o_BIND
+int port = 0;            // o_PORT
+char *filter_name = NULL;  // o_FILTER
+int socket_flag = 0;     // o_SOCKET
+int user = 0;            // o_USER
+int foreground_flag = 0; // o_FOREGROUND
+int verbose_level = 0;   // o_VERBOSE
+int workers = 0;         // o_WORKERS
+int help_flag = 0;       // o_HELP
+int version_flag = 0;    // o_VERSION
+
 
 #ifndef ALTERNATIVE
 
@@ -52,7 +66,7 @@ static option_t option_list[] = {
   {o_FILTER,     required_argument, "filter",     NULL,       "SCGI_FILTERNAME" },
   {o_WORKERS,    required_argument, "workers",    "w",        "SCGI_WORKERS" },
   {o_USER,       required_argument, "user",       "u",        "SCGI_USER" },
-  {o_VERBOSE,    no_argument,       "verbose",    "v",        "SCGI_VERBOSE" },
+  {o_VERBOSE,    optional_argument, "verbose",    "v",        "SCGI_VERBOSE" },
   {o_VERSION,    no_argument,       "version",    "V"         },      
   SO_OPTIONS_END()
 };
@@ -76,16 +90,12 @@ void configure_options(option_t option_list[]) {
 
   // o_HELP: help_flag
   item = scanopt_find(o_HELP, option_list);
-
-  item = scanopt_declare_option(option_list, o_HELP, no_argument, "help", "h", NULL, SIZE);
   scanopt_assign_usage(item, NULL, "Display a short summary of available command line options.");
   scanopt_assign_flag(item, (void *) &help_flag);
 
   // o_PORT: port
   item = scanopt_find(o_PORT, option_list);
-  item = scanopt_declare_option(option_list, o_PORT, required_argument, "port", "p", "SCGI_PORT", SIZE);
   scanopt_assign_usage(item, "int", "The TCP/IP port associated with the server side socket");
-
 
   // o_SOCKET: socket_flag
   item = scanopt_find(o_SOCKET, option_list);
@@ -204,7 +214,7 @@ static int parse_options(int argc, char *argv[]);
 
 extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
 
-  int num_options;
+  int next_arg;
 
   configure_options(option_list);
 
@@ -217,14 +227,13 @@ extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
     source_config_file(config_file);
   } 
 
-  num_options = parse_options(argc, argv);
+  next_arg = parse_options(argc, argv);
 
   // 4. Check if any command line parameters exist for '[ exec ]'
-  if (argc - num_options != 0) {
+  if (argc - next_arg != 0) {
       fprintf(stderr, "Superfluous command line arguments encountered\n");
       exit(1);
   }
-
 
   return;
 }
@@ -244,9 +253,8 @@ void source_config_file(char * filename) {
   if (fp == NULL) {
     char str[FILENAME_MAX];
     bzero(str, FILENAME_MAX);
-    sprintf(str, "Unable to open config file: %s\n", filename);
+    sprintf(str, "%s", filename);
     perror(str);
-    print_usage();
     exit(1);
   }
 
@@ -289,16 +297,10 @@ void print_usage() {
 
 extern int parse_options(int argc, char *argv[]) {
   int  option_id;
-  int  num_options;
+  int  next_arg;
   option_t * item;
 
-  // Set any special conditions on command-line options
-  //scanopt_config();
-
-
-  // scanopt_validate(option_list);
-  // scanopt_initialize(option_list);
-  num_options = scanopt_scan(argc, argv, option_list);
+  next_arg = scanopt_scan(argc, argv, option_list);
 
   while ((option_id = scanopt_next(option_list)) != -1) {
     switch (option_id) {
@@ -368,7 +370,7 @@ extern int parse_options(int argc, char *argv[]) {
          break;
    
       case o_VERSION:
-         version_flag = SET;
+         //version_flag = SET;
          // This can be handled via a scanopt variable
          break;
 
@@ -382,7 +384,6 @@ extern int parse_options(int argc, char *argv[]) {
       case o_BIND:
         if (socket_flag == SET) {
           fprintf(stderr, "Illegal use of both --bind and --socket options.\n");
-          print_usage();
           exit(1);
         }
         {
@@ -445,12 +446,11 @@ extern int parse_options(int argc, char *argv[]) {
   //  1. must have either socket or port
   if (port == 0 && socket_flag == UNSET) {
     fprintf(stderr, "Either the --port or the --socket option needs to be provided.\n");
-    print_usage();
     exit(1);
   }
 
-  return num_options;  //(the next optind to process)
-                       // this should be "[ exec ]"
+  return next_arg;    //(the next optind to process)
+                      // this should be "[ exec ]"
 }
 
 
