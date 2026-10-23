@@ -56,6 +56,7 @@ int optondup  = SO_DUP_OVERWRITE;
 
 opt_value_t optvalue;
 
+static void assign_variable(void *variable, int type, char * val);
 
 
 // set the global default for action to take on duplicate
@@ -138,18 +139,16 @@ extern void scanopt_validate(option_t option_list[]) {
    //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SO_VAL_UNSET
    //       - id must be the opposite
 
-   // should we or should we not have an ENV
-
-
-
-   // NOT checked: if (id > 0), it is unique within the option_list
  
-   // default value is ONLY associated with a option_argument
+   // ARG_TYPE Constraints
+   //  ARG_TYPE         VAL_TYPE      INITIAL        DEFAULT
    //  no_argument,     SET | UNSET,  initial value
    //  option_argument,           *,  initial value, default value
    //  required_value,            *,  initial value
  
-   // 
+   // NOT checked: if (id > 0), it is unique within the option_list
+   // should we or should we not have an ENV
+
 
  option_t *item;
  option_t *root_item;
@@ -221,6 +220,7 @@ extern void scanopt_validate(option_t option_list[]) {
           isError = true;
           break;
       }
+
       if (SO_DUP_TYPE(item->type) != SO_DUP_OVERWRITE) {
         fprintf(stderr, "Complement Option \"%s\" must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));
         isError = true;
@@ -228,6 +228,33 @@ extern void scanopt_validate(option_t option_list[]) {
     }
     // END OF COMPLEMENT CONSTRAINTS
 
+    // ARG_TYPE CONSTRAINTS
+    switch (SO_ARG_TYPE(item->type)) {
+      case SO_ARG_REQUIRED:      
+        if (item -> defaultValue != NULL) {
+          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(item));
+          isError = true;
+        }
+        break;
+      case SO_ARG_OPTIONAL:
+        break;
+
+      case SO_ARG_NONE:
+        if (item -> defaultValue != NULL) {
+          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(item));
+          isError = true;
+        }
+        switch (SO_VAL_TYPE(item->type)) {
+          case SO_VAL_NULL:  // merge
+          case SO_VAL_SET:   // merge
+          case SO_VAL_UNSET: break;
+          default:
+            fprintf(stderr, "Illegal value type assigned to an option with no arguments: %s\n", SO_OPTION_NAME(item));
+            isError = true;
+        }
+        break;
+    }
+    // END OF ARG_TYPE CONSTAINTS
   }
   if (isError == true ) {
     exit(1);
@@ -452,12 +479,10 @@ static void scanopt_define_option(option_t *item, char *value, option_t option_l
   switch(SO_ARG_TYPE(item->type)) {
     case SO_ARG_NONE:
       {
-         int type = SO_VAL_TYPE(item->type);
-
          if (item->id < 0) {
           item = scanopt_find(-(item->id), option_list);
          }
-         switch (type) {
+         switch (SO_VAL_TYPE(item->type)) {
            case SO_VAL_SET:    item->value = "1";   break;
            case SO_VAL_UNSET:  item->value = "0";   break;
            default:            break;
@@ -507,10 +532,38 @@ extern void scanopt_initialize(option_t option_list[]) {
     }
     item.count = 0;
 
-    item.value = item.initValue;
+    item.value = item.initValue;  // this is not really needed
+
+    if (item.variable != NULL) {
+      assign_variable(item.variable, SO_VAL_TYPE(item.type), item.initValue);
+    }
   }
   return;
 }
+
+void assign_variable(void *variable, int type, char * val) {
+
+  switch (SO_VAL_TYPE(type)) {
+    case SO_VAL_TEXT:   (* (char **) variable) = val; break;
+
+    case SO_VAL_SET:    //merge
+    case SO_VAL_UNSET:  //merge
+    case SO_VAL_INT:    (* (int *) variable) = atoi(val); break;
+
+    case SO_VAL_LONG:   (* (int *) variable) = atol(val); break;
+
+    case SO_VAL_FLOAT:  (* (float *) variable) = (float) atof(val); break;
+
+    case SO_VAL_DOUBLE: (* (double *) variable) = atof(val); break;
+
+    //case SO_VAL_ARRAY:  (* (char ***) variable) = ???; break;
+
+    default:
+      assert(false);
+  }
+  return;
+}
+
 
 static void scanopt_apply_env(option_t option_list[]) {
   option_t *item;
@@ -540,12 +593,16 @@ static void scanopt_config() {
 
 
 //extern int scanopt_next(option_t option_list[], int flag) {
+// what if the value is initialize...
+// should it be returned.. or is that the initial value;
+
 extern int scanopt_next(option_t option_list[]) {
 
   static int current_index = 0;
   static int initialized = false;
 
-  option_t item;
+  option_t *item;
+  int      complement;
 
   if (initialized == false) {
     initialized = true;
@@ -574,63 +631,58 @@ extern int scanopt_next(option_t option_list[]) {
     // } while (true);
 
   do {
-    item = option_list[current_index];
+    item = &(option_list[current_index]);
     current_index ++;
 
-    if (item.id == 0)   return -1;
-    if (item.count > 0) break;
+    if (item->id == 0)   return -1;
 
-// The positive id holds the value
-// Hence, if we have a negative value, 
-    // item.value = lookup(- item.id).value
-    // item.type  = as it is
-    // break;
+    complement = UNSET;
+    if (item->id < 0) {
+      complement = SET;
+      item = scanopt_find(-item->id, option_list);
+    }
 
-    //-- lookup the 
-    // For unused complements, use the SO_VAL_SET to determine what to return
-    if (SO_VAL_TYPE(item.type) == SO_VAL_SET)   break;
-    if (SO_VAL_TYPE(item.type) == SO_VAL_UNSET) continue;
-  } while (true);
+  } while (item->count == 0);
 
-//   at least one of them has been used.
-//   if item.type == SO_VAL_SET    && item.value == "1"
-//     return item.id
-//   if item.type == SO_VAL_SET    && item.value == "0"
-//     return - item.id
-//   if item.type == SO_VAL_UNSET  && item.value == "1"
-//     return item.id
-//   if item.type == SO_VAL_UNSET  && item.value == "0"
-//     return - item.id
-
-
-  optarg = item.value;
   optind = current_index;         // relative to the option_list NOT argv
   // optopt = item.id;            // does not make sense
 
-  switch (SO_VAL_TYPE(item.type)) {
-   case SO_VAL_TEXT:   optvalue.sVal = item.value; break;
-   case SO_VAL_SET:
-   case SO_VAL_UNSET:
-   case SO_VAL_INT:    optvalue.iVal = (int) atoi(item.value); break;
-   case SO_VAL_LONG:   optvalue.lVal = (long) atoi(item.value); break;
-   case SO_VAL_FLOAT:  optvalue.fVal = (float) atof(item.value); break;
-   case SO_VAL_DOUBLE: optvalue.dVal = (float) atof(item.value); break;
-   case SO_VAL_ARRAY:  optvalue.aVal = item.valueArray; break;
-  }
-  if (item.variable != NULL) {
-    switch (SO_VAL_TYPE(item.type)) {
-      case SO_VAL_TEXT:   (* (char **)item.variable) = optvalue.sVal; break;
-      case SO_VAL_SET:
-      case SO_VAL_UNSET:
-      case SO_VAL_INT:    (* (int *)item.variable) = optvalue.iVal; break;
-      case SO_VAL_LONG:   (* (int *)item.variable) = optvalue.lVal; break;
-      case SO_VAL_FLOAT:  (* (float *)item.variable) = optvalue.fVal; break;
-      case SO_VAL_DOUBLE: (* (double *)item.variable) = optvalue.dVal; break;
-      case SO_VAL_ARRAY:  (* (char ***)item.variable) = optvalue.aVal; break;
-
+  optarg = item->value;
+  if (complement == SET) {
+    if (item->value[0] == '0') {
+      optarg = "1";
+    } else {
+      optarg = "0";
     }
   }
-  return item.id;   // sometimes return the compliment.
+
+  if (item->variable != NULL) {
+    assign_variable(item->variable, SO_VAL_TYPE(item->type), optarg);
+  
+    if (SO_VAL_TYPE(item->type), SO_VAL_ARRAY) {
+      (* (char ***) item->variable) = item->valueArray;
+    }
+  }
+
+  switch (SO_VAL_TYPE(item->type)) {
+    case SO_VAL_TEXT:   optvalue.sVal = optarg; break;
+
+    case SO_VAL_SET:    //merge
+    case SO_VAL_UNSET:  //merge
+    case SO_VAL_INT:    optvalue.iVal = atoi(optarg); break;
+
+    case SO_VAL_LONG:   optvalue.lVal = atol(optarg); break;
+
+    case SO_VAL_FLOAT:  optvalue.fVal = (float) atof(optarg); break;
+
+    case SO_VAL_DOUBLE: optvalue.dVal = atof(optarg); break;
+
+    case SO_VAL_ARRAY:  optvalue.aVal = item->valueArray; break;
+    default:
+      assert(false);
+  }
+
+  return (complement == UNSET)? item->id : - item->id; 
 }
 
 
@@ -648,7 +700,7 @@ void scanopt_optstring(char * opt_string, int length, option_t option_list[]) {
   for (i = 0; option_list[i].id != 0; i++) {
     if (option_list[i].shortName != NULL) {
       opt_string[x] = option_list[i].shortName[0]; x++;
-      switch (option_list[i].type) {
+      switch (SO_ARG_TYPE(option_list[i].type)) {
         case SO_ARG_NONE:  break;
         case SO_ARG_OPTIONAL:
           opt_string[x] = ':'; x++;

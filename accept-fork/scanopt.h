@@ -113,6 +113,8 @@
 
 #define SO_OPTIONS_RETRIEVE_ALL      (2)
 
+#define SET (1)
+#define UNSET (0)
 
 #define SO_ID_ERROR     (0xffff)
 
@@ -179,12 +181,16 @@ extern option_t *scanopt_find_env(char * env, option_t option_list[]);
 
 extern void scanopt_set_ondup(int value);
 
-extern option_t * scanopt_declare_option(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
+extern option_t *scanopt_declare_option(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
+extern option_t *scanopt_assign_complement(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
+  // assign_usage: yes
+  // assign_variable: no
 
-void scanopt_assign_usage(option_t *item, char *format, char *description);
-void scanopt_assign_flag(option_t *item, void * variable);
-void scanopt_assign_nflag(option_t *item, void * variable);
-void scanopt_assign_variable(option_t *item, void * variable, int type, char *initialVal, char *defaultVal);
+
+extern void scanopt_assign_usage(option_t *item, char *format, char *description);
+extern void scanopt_assign_flag(option_t *item, void * variable);
+extern void scanopt_assign_nflag(option_t *item, void * variable);
+extern void scanopt_assign_variable(option_t *item, void * variable, int type, char *initialVal, char *defaultVal);
 
 
 // // Secondary API
