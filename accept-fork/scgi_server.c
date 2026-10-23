@@ -11,18 +11,18 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "../netstring/scgi_netstring.h"
+#include "scgi_netstring.h"
 #include "scanopt.h"
 #include "command_line.h"
 
 
 #define PID_FILE      "pid"
 #define ERROR_FILE    "error.log"
-#define DOCUMENT_FILE "cgi"
+#define DOCUMENT_DIR  "cgi"
 #define SOCKET_FILE   "socket"
 
-
 #define MAX_ENVS (50)
+
 
 extern void set_command_line_options(int argc, char *argv[], char *home);
 
@@ -41,20 +41,11 @@ extern void set_command_line_options(int argc, char *argv[], char *home);
 
 
 
-// What is the value of recording the children pid.
-   // only out-of-bound -- cleanup, ???
-
-// RESTRICTION: only one scgi_daemon per SCGI_HOME
-//  SCGI_HOME=... scgi_daemon ....  
-
-
-
 int main(int argc, char *argv[], char **envp) {
 
   char scgi_dir[FILENAME_MAX];
-  char working_directory[FILENAME_MAX];
-  char config_file[FILENAME_MAX];
-  char document_home[FILENAME_MAX];
+  char *document_home = DOCUMENT_DIR;
+
 
   int retval = 0;
 
@@ -102,16 +93,13 @@ int main(int argc, char *argv[], char **envp) {
   }
 
   chdir(scgi_dir);
-
-  // open logfile
-  // set upser
-  // create socket, etc
-
+  {
     FILE * fp;
-    fp = freopen(optarg, "w", stderr);
+    fp = freopen(ERROR_FILE, "w", stderr);
     if (fp == 0) {
          perror("Unable to open error logfile\n");
     }
+  }
 
 
   // Setup the Socket

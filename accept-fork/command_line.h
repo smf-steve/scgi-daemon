@@ -23,7 +23,7 @@
 /* COMMAND LINE OPTIONS */
 #define  o_BIND       (1)
 #define  o_CONF       (2)
-#define  o_SCRIPT     (4)
+#define  o_FILTER     (4)
 #define  o_FOREGROUND (5)
 #define  o_HELP       (6)
 #define  o_PORT       (8)
@@ -42,13 +42,14 @@
 // The following are variables that are defined via command line processing.
 extern char * server_ip;
 extern int    port;
-extern char * scriptname;
+extern char * filter_name;
 extern int    socket_flag;
 extern int    user;
 extern int    foreground_flag;
-extern int    verbose_flag;
+extern int    verbose_level;
 extern int    workers;
 extern int    help_flag;
 extern int    version_flag;
+
 
 extern void set_command_line_options(int argc, char *argv[], char *scgi_home);

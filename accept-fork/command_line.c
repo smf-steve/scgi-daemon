@@ -28,42 +28,179 @@ static char *version_string = "0.1";
 //# SO_ARG_TYPE(required, text, error);
 
 
+#ifdef ALTERNATIVE
+
 static option_t option_list[] = {
-// id,           longName,     shortName, argType
-  {o_BIND,       "bind",       "b",       required_argument},
-  {o_CONF,       "config",     NULL,      required_argument},
-  {o_FOREGROUND, "foreground", "f",       no_argument},
-  {o_HELP,       "help",       "h",       no_argument},
-  {o_PORT,       "port",       "p",       required_argument},
-  {o_SOCKET,     "socket",     NULL,      no_argument},
-  {o_UDS,        "uds",        NULL,      no_argument},
-  {o_SCRIPT,     "script",     NULL,      required_argument},
-  {o_WORKERS,    "workers",    "w",       required_argument},
-  {o_USER,       "user",       "u",       no_argument},
-  {o_VERBOSE,    "verbose",    "v",       no_argument},
-  {o_VERSION,    "version",    "V",       no_argument},
+// id,           argType,           longName,     shortName,  envName
+  {o_BIND,       required_argument, "bind",       "b",        "SCGI_BIND" },
+  {o_CONF,       required_argument, "config"      },
+  {o_FOREGROUND, no_argument,       "foreground", "f",        "SCGI_FOREGROUND" },
+  {o_HELP,       no_argument,       "help",       "h"         },       
+  {o_PORT,       required_argument, "port",       "p",        "SCGI_PORT" },
+  {o_SOCKET,     no_argument,       "socket",     NULL,       "SCGI_SOCKET" },
+  {o_UDS,        no_argument,       "uds"         },
+  {o_FILTER,     required_argument, "filter",     NULL,       "SCGI_FILTERNAME" },
+  {o_WORKERS,    required_argument, "workers",    "w",        "SCGI_WORKERS" },
+  {o_USER,       required_argument, "user",       "u",        "SCGI_USER" },
+  {o_VERBOSE,    no_argument,       "verbose",    "v",        "SCGI_VERBOSE" },
+  {o_VERSION,    no_argument,       "version",    "V"         },      
   SO_OPTIONS_END()
 };
 
-// The following are variables related to options. There
-// values are set via `process_cli_options` and used with `main`
+
+void configure_options(option_t option_list[]) {
+  option_t *item;
+
+   // o_BIND: server_IP
+  item = scanopt_find(o_BIND, option_list);
+  scanopt_assign_usage(item, "ip_v4", "The ip address associated with the server side socket");
+
+  // o_CONF: 
+  item = scanopt_find(o_CONF, option_list);
+  scanopt_assign_usage(item, "filename", "The name of the configuration file");
+
+  // o_FOREGROUND: foreground_flag
+  item = scanopt_find(o_FOREGROUND, option_list);
+  scanopt_assign_usage(item, NULL, "Have the server run in the foreground");
+  scanopt_assign_flag(item, (void *) &foreground_flag);
+
+  // o_HELP: help_flag
+  item = scanopt_find(o_HELP, option_list);
+
+  item = scanopt_declare_option(option_list, o_HELP, no_argument, "help", "h", NULL, SIZE);
+  scanopt_assign_usage(item, NULL, "Display a short summary of available command line options.");
+  scanopt_assign_flag(item, (void *) &help_flag);
+
+  // o_PORT: port
+  item = scanopt_find(o_PORT, option_list);
+  item = scanopt_declare_option(option_list, o_PORT, required_argument, "port", "p", "SCGI_PORT", SIZE);
+  scanopt_assign_usage(item, "int", "The TCP/IP port associated with the server side socket");
+
+
+  // o_SOCKET: socket_flag
+  item = scanopt_find(o_SOCKET, option_list);
+  scanopt_assign_usage(item, NULL, "Have the server use a UDS (unix domain socket) $SCGI_HOME/socketfile");
+
+  // o_UDS: socket_flag
+  item = scanopt_find(o_UDS, option_list);
+  scanopt_assign_usage(item, NULL, "Have the server use a UDS (unix domain socket) $SCGI_HOME/socketfile");
+
+  // o_Filter: filter_name
+  item = scanopt_find(o_FILTER, option_list);
+  scanopt_assign_usage(item, "executable", "A program that can filter the input and output of the cgi script");
+
+  // o_WORKERS: workers
+  item = scanopt_find(o_WORKERS, option_list);
+  scanopt_assign_usage(item, "int", "The number of (initial) workers that field network requests");
+  scanopt_assign_variable(item, NULL, SO_VAL_INT, "5", NULL);  // Initial value is 5 workers
+
+  // o_USER: user
+  item = scanopt_find(o_USER, option_list);
+  scanopt_assign_usage(item, "name", "The user id associated with the daemon and workers. Requires server to run as root.");
+
+  // o_VERBOSE: verbose_level
+  item = scanopt_find(o_VERBOSE, option_list);
+  scanopt_assign_usage(item, "number", "Increase the verbosity of logging");
+  scanopt_assign_variable(item, NULL, SO_VAL_INT, "0", "1");  // Initial value is 0 for no logging, and "1" is the default value.
+
+  // o_VERSION: version_flag
+  item = scanopt_find(o_VERSION, option_list);
+  scanopt_assign_usage(item, NULL, "Displays the current version of the software");
+  scanopt_assign_flag(item, (void *) &version_flag);
+
+  return;
+}
+
+
+#else  // ALTERNATE
+
+#define SIZE 20
+static option_t option_list[SIZE];
+
+void configure_options(option_t option_list[]) {
+
+  option_t *item;
+
+   // o_BIND: server_IP
+  item = scanopt_declare_option(option_list, o_BIND, required_argument, "bind", "b", "SCGI_BIND", SIZE);
+  scanopt_assign_usage(item, "ip_v4", "The ip address associated with the server side socket");
+
+  // o_CONF: 
+  item = scanopt_declare_option(option_list, o_CONF, required_argument, "config", NULL, NULL, SIZE);
+  scanopt_assign_usage(item, "filename", "The name of the configuration file");
+
+  // o_FOREGROUND: foreground_flag
+  item = scanopt_declare_option(option_list, o_FOREGROUND, no_argument, "foreground", "f", "SCGI_FOREGROUND", SIZE);
+  scanopt_assign_usage(item, NULL, "Have the server run in the foreground");
+  scanopt_assign_flag(item, (void *) &foreground_flag);
+
+  // o_HELP: help_flag
+  item = scanopt_declare_option(option_list, o_HELP, no_argument, "help", "h", NULL, SIZE);
+  scanopt_assign_usage(item, NULL, "Display a short summary of available command line options.");
+  scanopt_assign_flag(item, (void *) &help_flag);
+
+  // o_PORT: port
+  item = scanopt_declare_option(option_list, o_PORT, required_argument, "port", "p", "SCGI_PORT", SIZE);
+  scanopt_assign_usage(item, "int", "The TCP/IP port associated with the server side socket");
+
+
+  // o_SOCKET: socket_flag
+  item = scanopt_declare_option(option_list, o_SOCKET, no_argument, "socket", NULL, "SCGI_SOCKET", SIZE);
+  scanopt_assign_usage(item, NULL, "Have the server use a UDS (unix domain socket) $SCGI_HOME/socketfile");
+
+  // o_UDS: socket_flag
+  item = scanopt_declare_option(option_list, o_UDS, no_argument, "uds", NULL, NULL, SIZE);
+  scanopt_assign_usage(item, NULL, "Have the server use a UDS (unix domain socket) $SCGI_HOME/socketfile");
+
+  // o_Filter: filter_name
+  item = scanopt_declare_option(option_list, o_FILTER, required_argument, "filter", NULL, "SCGI_FILTERNAME", SIZE);
+  scanopt_assign_usage(item, "filename", "A filter script that process the inbound and oubound data associated with cgi program" );
+
+  // o_WORKERS: workers
+  item = scanopt_declare_option(option_list, o_WORKERS, required_argument, "workers", "w", "SCGI_WORKERS", SIZE);
+  scanopt_assign_usage(item, "int", "The number of (initial) workers that field network requests");
+  scanopt_assign_variable(item, NULL, SO_VAL_INT, "5", NULL);  // Initial value is 5 workers
+
+  // o_USER: user
+  item = scanopt_declare_option(option_list, o_USER, required_argument, "user", "u", "SCGI_USER", SIZE);
+  scanopt_assign_usage(item, "name", "The user id associated with the daemon and workers. Requires server to run as root.");
+
+  // o_VERBOSE: verbose_level
+  item = scanopt_declare_option(option_list, o_VERBOSE, optional_argument, "verbose", "v", "SCGI_VERBOSE", SIZE);
+  scanopt_assign_usage(item, "number", "Increase the verbosity of logging");
+  scanopt_assign_variable(item, NULL, SO_VAL_INT, "0", "1");  // Initial value is 0 for no logging, and "1" is the default value.
+
+  // o_VERSION: version_flag
+  item = scanopt_declare_option(option_list, o_VERSION, no_argument, "version", "V", NULL, SIZE);
+  scanopt_assign_usage(item, NULL, "Displays the current version of the software");
+  scanopt_assign_flag(item, (void *) &version_flag);
+
+  return;
+}
+#endif
+
+
+
+
+// The following are variables related to options. Their
+// values set within this file and used with `main`
 
 char * server_ip       = NULL;
 int    port            = 0;
 
-char * scriptname;
+char * filter_name;
 int    socket_flag     = UNSET;
-int    user;
+int    user            = 0;
 int    foreground_flag = UNSET;
-int    verbose_flag    = UNSET;
+int    verbose_level   = 0;
 int    workers         = DEFAULT_WORKERS;
 int    help_flag       = UNSET;
 int    version_flag    = UNSET;
 
 
 static void print_version();
-static void print_usage(option_t option_list[]);
-static void print_usage_header();
+static void print_usage();
+static void print_usage_header(char *indent);
 
 // calling function:
 static void source_config_file(char * filename);
@@ -74,6 +211,8 @@ static int parse_options(int argc, char *argv[]);
 extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
 
   int num_options;
+
+  configure_options(option_list);
 
   if (argc == 1) {
     // the command line is empty, hence invoke the config file.
@@ -87,48 +226,13 @@ extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
   num_options = parse_options(argc, argv);
 
   // 4. Check if any command line parameters exist for '[ exec ]'
-  switch (argc - num_options) {
-    case 0:
-      // There are no arguments to the command
-      break;
-
-    case 1:
-      // The command line contained just '[ exec ]'
-      if (scriptname != NULL) {
-        fprintf(stderr, "Duplicate scriptname provided: %s and %s\n", scriptname, argv[num_options]);
-        exit(1);
-      }
-      scriptname = argv[num_options];
-      fprintf(stderr, "Warning: Using perpetual script: %s\n", scriptname);
-      break;
-
-    default:
+  if (argc - num_options != 0) {
       fprintf(stderr, "Superfluous command line arguments encountered\n");
       exit(1);
   }
-  ////////////////////////////////////////////
 
-  ///////////////////////////////////////////
-  //
-  if (scriptname != NULL) {
-    {
-      struct stat stats;
-
-      if (stat(optarg, &stats) != 0) {
-        perror("scriptname is not a valid filename.");
-        exit(1);
-      }
-      if (S_ISREG(stats.st_mode) != 0) {
-        perror("scriptname is not a regular file.");
-        exit(1);
-      }
-    }
-  }
 
   return;
-  /// END of COMMAND LINE PROCESSING
-  //////////////////////////////////////////////////
-
 }
 
 
@@ -148,7 +252,7 @@ void source_config_file(char * filename) {
     bzero(str, FILENAME_MAX);
     sprintf(str, "Unable to open config file: %s\n", filename);
     perror(str);
-    print_usage(option_list);
+    print_usage();
     exit(1);
   }
 
@@ -170,25 +274,21 @@ void print_version() {
   fprintf(stdout, "Version: %s\n", version_string);
 }
 
-void print_usage_header() {
+void print_usage_header(char *indent) {
   fprintf(stdout, "\nUsage:\n");
-  fprintf(stdout, "scgid [options] ( --port <number> | --socket ) [ program ]\n");
-  fprintf(stdout, "scgid [ --version ] [ --help ] [ ignored ]\n");
-  fprintf(stdout, "scgid [ --conf <file> ]\n");
+  fprintf(stdout, "%sscgid [options] ( --port <number> | --socket ) [ program ]\n", indent);
+  fprintf(stdout, "%sscgid [ --version ] [ --help ] [ ignored ]\n", indent);
+  fprintf(stdout, "%sscgid [ --conf <file> ]\n", indent);
   fprintf(stdout, "\n");
   return;
 }
 
-void print_usage(option_t option_list[]) {
-  // Also performs a sanity check on the item list
-  // Things not checked:
-  //   - duplicate defined options
-  //   - multiple usage of items
-  //   - order of elements... e.g., this is done last
-  //     - have the application do it.
+void print_usage() {
 
-  print_usage_header();
-  scanopt_usage(option_list);
+  char *indent = "  ";
+
+  print_usage_header(indent);
+  scanopt_usage(option_list, indent);
   exit(0);
 }
 
@@ -217,13 +317,21 @@ extern int parse_options(int argc, char *argv[]) {
         source_config_file(optarg);
         break;
 
-      ///////////////////////////////////////////////////
-      //  Script Related Options
 
-      case o_SCRIPT:
-        // Validation of scriptname is deferred
-        // scriptname may be the first (and only) argument
-        scriptname = optarg;
+      case o_FILTER:
+        {
+          struct stat stats;
+
+          if (stat(optarg, &stats) != 0) {
+           perror("filter name is not a valid filename.");
+           exit(1);
+          }
+          if (S_ISREG(stats.st_mode) != 0) {
+            perror("filter name is not a regular file.");
+            exit(1);
+          }
+        }
+        filter_name = optarg;
         break;
 
       ///////////////////////////////////////////////////
@@ -235,6 +343,8 @@ extern int parse_options(int argc, char *argv[]) {
         break;
 
       case o_USER:
+        assert(false);
+        fprintf(stderr, "Server not running as root. Hence unable to change effective uid to: %s", optarg);
         {
            struct passwd *record;
 
@@ -269,7 +379,7 @@ extern int parse_options(int argc, char *argv[]) {
          break;
 
       case o_VERBOSE:
-        verbose_flag = SET;
+        verbose_level = optvalue.iVal;
         // This can be handled via a scanopt variable
         break;
 
@@ -278,7 +388,7 @@ extern int parse_options(int argc, char *argv[]) {
       case o_BIND:
         if (socket_flag == SET) {
           fprintf(stderr, "Illegal use of both --bind and --socket options.\n");
-          print_usage_header();
+          print_usage();
           exit(1);
         }
         {
@@ -303,6 +413,9 @@ extern int parse_options(int argc, char *argv[]) {
 
       case o_SOCKET:
       case o_UDS:
+        // Isn't  there an issue of the SOCKET and UDS have differe values
+        // well not in this case, but what in general
+
         if (server_ip != NULL) {
           fprintf(stderr, "Illegal use of both --bind and --socket\n");
           exit(1);
@@ -323,14 +436,14 @@ extern int parse_options(int argc, char *argv[]) {
 
       default:
         // error
-        print_usage(option_list);
+        print_usage();
         exit(1);
     }
   }
 
   if (version_flag == SET || help_flag == SET) {
     if (version_flag == SET) print_version();
-    if (help_flag == SET) print_usage(option_list);
+    if (help_flag == SET) print_usage();
     exit(0);
   }
 
@@ -338,7 +451,7 @@ extern int parse_options(int argc, char *argv[]) {
   //  1. must have either socket or port
   if (port == 0 && socket_flag == UNSET) {
     fprintf(stderr, "Either the --port or the --socket option needs to be provided.\n");
-    print_usage_header();
+    print_usage();
     exit(1);
   }
 
