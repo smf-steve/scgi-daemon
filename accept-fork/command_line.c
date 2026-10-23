@@ -24,11 +24,21 @@ static char *version_string = "0.1";
 #define MAX_WORKERS (15)
 
 
-//# SO_ARG_TYPE(otype, type, duplicative);
-//# SO_ARG_TYPE(required, text, error);
+// The following are variables related to options. Their
+// values set within this file and used with `main`
 
+char * server_ip;       // o_BIND
+int    port;            // o_PORT
+char * filter_name;     // o_FILTER
+int    socket_flag;     // o_SOCKET
+int    user;            // o_USER
+int    foreground_flag; // o_FOREGROUND
+int    verbose_level;   // o_VERBOSE
+int    workers;         // o_WORKERS
+int    help_flag;       // o_HELP
+int    version_flag;    // o_VERSION
 
-#ifdef ALTERNATIVE
+#ifndef ALTERNATIVE
 
 static option_t option_list[] = {
 // id,           argType,           longName,     shortName,  envName
@@ -180,22 +190,6 @@ void configure_options(option_t option_list[]) {
 #endif
 
 
-
-
-// The following are variables related to options. Their
-// values set within this file and used with `main`
-
-char * server_ip       = NULL;
-int    port            = 0;
-
-char * filter_name;
-int    socket_flag     = UNSET;
-int    user            = 0;
-int    foreground_flag = UNSET;
-int    verbose_level   = 0;
-int    workers         = DEFAULT_WORKERS;
-int    help_flag       = UNSET;
-int    version_flag    = UNSET;
 
 
 static void print_version();

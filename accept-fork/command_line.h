@@ -40,16 +40,16 @@
 
 
 // The following are variables that are defined via command line processing.
-extern char * server_ip;
-extern int    port;
-extern char * filter_name;
-extern int    socket_flag;
-extern int    user;
-extern int    foreground_flag;
-extern int    verbose_level;
-extern int    workers;
-extern int    help_flag;
-extern int    version_flag;
+extern char * server_ip;       // o_BIND
+extern int    port;            // o_PORT
+extern char * filter_name;     // o_FILTER
+extern int    socket_flag;     // o_SOCKET
+extern int    user;            // o_USER
+extern int    foreground_flag; // o_FOREGROUND
+extern int    verbose_level;   // o_VERBOSE
+extern int    workers;         // o_WORKERS
+extern int    help_flag;       // o_HELP
+extern int    version_flag;    // o_VERSION
 
 
 extern void set_command_line_options(int argc, char *argv[], char *scgi_home);
