@@ -33,6 +33,7 @@
 #define  o_VERBOSE   (12)
 #define  o_VERSION   (13)
 #define  o_WORKERS   (14)
+#define  o_ENV  (15)
 
 #define SET (1)
 #define UNSET (0)

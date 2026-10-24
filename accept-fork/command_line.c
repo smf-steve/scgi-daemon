@@ -56,8 +56,8 @@ int version_flag = 0;    // o_VERSION
 
 static option_t option_list[] = {
 // id,           argType,           longName,     shortName,  envName
+  {o_CONF,       required_argument, "config"      },  // This option MUST be listed first
   {o_BIND,       required_argument, "bind",       "b",        "SCGI_BIND" },
-  {o_CONF,       required_argument, "config"      },
   {o_FOREGROUND, no_argument,       "foreground", "f",        "SCGI_FOREGROUND" },
   {o_HELP,       no_argument,       "help",       "h"         },       
   {o_PORT,       required_argument, "port",       "p",        "SCGI_PORT" },
@@ -68,6 +68,7 @@ static option_t option_list[] = {
   {o_USER,       required_argument, "user",       "u",        "SCGI_USER" },
   {o_VERBOSE,    optional_argument, "verbose",    "v",        "SCGI_VERBOSE" },
   {o_VERSION,    no_argument,       "version",    "V"         },      
+  {o_ENV,        required_argument, "",          "hh",      "TEST_ENV" },
   SO_OPTIONS_END()
 };
 
@@ -75,13 +76,13 @@ static option_t option_list[] = {
 void configure_options(option_t option_list[]) {
   option_t *item;
 
-   // o_BIND: server_IP
-  item = scanopt_find(o_BIND, option_list);
-  scanopt_assign_usage(item, "ip_v4", "The ip address associated with the server side socket");
-
   // o_CONF: 
   item = scanopt_find(o_CONF, option_list);
   scanopt_assign_usage(item, "filename", "The name of the configuration file");
+
+   // o_BIND: server_IP
+  item = scanopt_find(o_BIND, option_list);
+  scanopt_assign_usage(item, "ip_v4", "The ip address associated with the server side socket");
 
   // o_FOREGROUND: foreground_flag
   item = scanopt_find(o_FOREGROUND, option_list);
@@ -141,13 +142,13 @@ void configure_options(option_t option_list[]) {
 
   option_t *item;
 
+  // o_CONF:  // order matters:  o_CONF must be first
+  item = scanopt_declare_option(option_list, o_CONF, required_argument, "config", NULL, NULL, SIZE);
+  scanopt_assign_usage(item, "filename", "The name of the configuration file");
+
    // o_BIND: server_IP
   item = scanopt_declare_option(option_list, o_BIND, required_argument, "bind", "b", "SCGI_BIND", SIZE);
   scanopt_assign_usage(item, "ip_v4", "The ip address associated with the server side socket");
-
-  // o_CONF: 
-  item = scanopt_declare_option(option_list, o_CONF, required_argument, "config", NULL, NULL, SIZE);
-  scanopt_assign_usage(item, "filename", "The name of the configuration file");
 
   // o_FOREGROUND: foreground_flag
   item = scanopt_declare_option(option_list, o_FOREGROUND, no_argument, "foreground", "f", "SCGI_FOREGROUND", SIZE);
@@ -207,7 +208,7 @@ static void print_usage();
 static void print_usage_header(char *indent);
 
 // calling function:
-static void source_config_file(char * filename);
+static void source_config_file(FILE *fp);
 ///
 static int parse_options(int argc, char *argv[]);
 
@@ -219,12 +220,21 @@ extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
   configure_options(option_list);
 
   if (argc == 1) {
-    // the command line is empty, hence invoke the config file.
+    FILE *fp;
+    // the command line is empty
+    // hence invoke the default config file, if it exists.
     char config_file[FILENAME_MAX];
 
     strlcpy(config_file, scgi_dir, FILENAME_MAX);
     strlcat(config_file, DEFAULT_CONFIG_FILE, FILENAME_MAX);
-    source_config_file(config_file);
+
+    fp = fopen(config_file, "r");
+    if (fp == NULL) {
+      return;
+    } else {
+      source_config_file(fp);
+      fclose(fp);
+    }
   } 
 
   next_arg = parse_options(argc, argv);
@@ -240,33 +250,30 @@ extern void set_command_line_options(int argc, char *argv[], char *scgi_dir) {
 
 
 
-void source_config_file(char * filename) {
+void source_config_file(FILE *fp) {
   ////////////////////////////////////////////
   //   Source the Configuration File
-  FILE *fp;
-
   char *buffer;
   size_t capacity;
   int  length;
 
-  fp = fopen(filename, "r");
-  if (fp == NULL) {
-    char str[FILENAME_MAX];
-    bzero(str, FILENAME_MAX);
-    sprintf(str, "%s", filename);
-    perror(str);
-    exit(1);
-  }
-
+  buffer=NULL; capacity=0;
   length = getline(&buffer, &capacity, fp);
   // might have an issue if the last line of the config is not a "\n"
   while (length > 0) {
-    assert(buffer[length] == '\n');
-    buffer[length] = '\0';
+    char * v_str;
+    assert(buffer[length-1] == '\n');
+    buffer[length-1] = '\0';
+    //v_str = strchr(buffer, '=');
+    //(* v_str) = '\0';
+    //v_str ++;
+
+    //setenv(buffer, v_str, 1);
     putenv(buffer);
+
+    buffer=NULL; capacity=0;
     length = getline(&buffer, &capacity, fp);
   }
-  fclose(fp);
 }
 
 
@@ -306,11 +313,23 @@ extern int parse_options(int argc, char *argv[]) {
     switch (option_id) {
 
       case o_CONF:
-        if (optcount > 1) {
-          fprintf(stderr, "--config must be the only command line option\n");
-           exit(1);
+        {
+          FILE *fp;
+        
+          if (optcount > 1) {
+            fprintf(stderr, "--config must be the only command line option\n");
+            exit(1);
+          }
+
+          fp = fopen(optarg, "r");
+          if (fp == NULL) {
+            fprintf(stderr, "%s", optarg);
+            perror(optarg);
+            exit(1);
+          }
+          source_config_file(fp);
+          fclose(fp);
         }
-        source_config_file(optarg);
         break;
 
 
@@ -378,6 +397,10 @@ extern int parse_options(int argc, char *argv[]) {
         verbose_level = optvalue.iVal;
         // This can be handled via a scanopt variable
         break;
+
+      case o_ENV:
+         fprintf(stdout, "Test for o_ENV");
+         break;
 
       ///////////////////////////////////////////////////
       // Network Related Options
