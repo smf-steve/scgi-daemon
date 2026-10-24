@@ -6,8 +6,10 @@
 //     1. special case for no command line options/arguments.
 //        - if present, it must be the only option
 //        - it is implicitly present, if the command line is empty
+//        - if it is implicity present, the config file is only 
+//          source if it existes -- no error otherwise
 //
-//   scgi [options] ( --port=<number> | --socket=<filename> ) [ exec ]
+//   scgi [options] ( --port=<number> | --socket=<filename> )
 //
 //      2. normal processing of the command line for options
 //
@@ -33,7 +35,7 @@
 #define  o_VERBOSE   (12)
 #define  o_VERSION   (13)
 #define  o_WORKERS   (14)
-#define  o_ENV  (15)
+#define  e_SCGI_HOME  (15)
 
 #define SET (1)
 #define UNSET (0)
@@ -41,6 +43,7 @@
 
 
 // The following are variables that are defined via command line processing.
+extern char * scgi_dir;        // o_BIND
 extern char * server_ip;       // o_BIND
 extern int    port;            // o_PORT
 extern char * filter_name;     // o_FILTER
@@ -53,4 +56,4 @@ extern int    help_flag;       // o_HELP
 extern int    version_flag;    // o_VERSION
 
 
-extern void set_command_line_options(int argc, char *argv[], char *scgi_home);
+extern void set_command_line_options(int argc, char *argv[]);
