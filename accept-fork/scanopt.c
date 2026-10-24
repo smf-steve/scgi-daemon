@@ -126,7 +126,10 @@ void scanopt_assign_variable(option_t *item, void *variable, int type, char *ini
 
 
 
-static void scanopt_apply_env(option_t option_list[]);
+extern void scanopt_apply_env(option_t option_list[]);
+
+
+
 static void option_apply_env(option_t *item, option_t option_list[]);
 
 static void scanopt_define_option(option_t *item, char *value, option_t option_list[]);
@@ -392,7 +395,12 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
 }
 
 
-
+// extern void scanopt_option_usage(option_t option_list[], char *indent){
+// extern void scanopt_environment_usage(option_t option_list[], char *indent){
+   // should envionment_usage list
+   //  all envs or
+   //  envs that don't cover options...
+   //  both...  
 extern void scanopt_usage(option_t option_list[], char *indent){
   option_t item;
   char     *format;
@@ -401,8 +409,10 @@ extern void scanopt_usage(option_t option_list[], char *indent){
   for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list[i];
 
-    // must have at least a longName or shortName
-    assert(item.longName != NULL || item.shortName != NULL );
+    // must have at least a longName or shortName to be a proper option
+    if (item.longName == NULL || item.shortName == NULL ) {
+      continue;
+    }
 
     fprintf(stdout, "%s", indent);
 
@@ -583,10 +593,9 @@ void assign_variable(void *variable, int type, char * val) {
 }
 
 
-static void scanopt_apply_env(option_t option_list[]) {
+extern void scanopt_apply_env(option_t option_list[]) {
   option_t *item;
 
-  assert(false);
   for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list+i;
 
