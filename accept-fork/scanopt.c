@@ -127,12 +127,15 @@ void scanopt_assign_variable(option_t *item, void *variable, int type, char *ini
 
 
 static void scanopt_apply_env(option_t option_list[]);
+static void option_apply_env(option_t *item, option_t option_list[]);
+
 static void scanopt_define_option(option_t *item, char *value, option_t option_list[]);
 
-#define SO_OPTION_NAME(item)  (item->longName != NULL ? item->longName : item->shortName )
+#define SO_OPTION_NAME(item) (item->longName != NULL ? item->longName : \
+                             ((item->envName != NULL)? item->envName : item->shortName))
 
 extern void scanopt_validate(option_t option_list[]) {
-   // must have at least a longName or shortName
+   // must have at least a longName, shortName, or envName
    // shortName is a single character
    // shortName does not use ':' nor '?'
    // check id < 0
@@ -157,25 +160,42 @@ extern void scanopt_validate(option_t option_list[]) {
 
  for(i = 0; option_list[i].id != 0; i++ ) {
     item = option_list+i;
-    if (item->longName == NULL && item->shortName == NULL) {
-      fprintf(stderr, "Option needs either a long name or short name\n");
+
+    // NAMING CONSTRAINTS
+    if (item->longName == NULL && 
+        item->shortName == NULL &&
+        item->envName == NULL) {
+      fprintf(stderr, "Option #%d: Needs a name\n", item->id);
+      isError = true;
+    }
+    if (item->longName != NULL && item->longName[0] == '\0') {
+      fprintf(stderr, "Option #%d: Long name can't be \"\"\n", item->id);
+      isError = true;
+    }
+    if (item->envName != NULL && item->envName[0] == '\0') {
+      fprintf(stderr, "Option #%d: Environment name can't be \"\"\n", item->id);
       isError = true;
     }
 
     if (item->shortName != NULL) {
-      if (item->shortName[0] == '\0' || item->shortName[1] != '\0') {
-        if (item->longName != NULL) {
-          fprintf(stderr, "Short name for \"%s\" must be a single character\n", item->longName);
-        } else {
-          fprintf(stderr, "Short name for option id=%d must be a single character\n", item->id);
-        }
-        isError = true;
-      }
       switch (item->shortName[0]) {
+        case '\0':
+          fprintf(stderr, "Option #%d: Short name can't be \"\"\n", item->id);
+          isError = true;
+          break;
+
         case '?':
         case ':':
-          fprintf(stderr, "Colon (:) nor Question (?) can not be used as an option\n");
+          fprintf(stderr, "Option #%d: Colon (:) nor Question (?) can not be used as an option\n", item->id);
           isError = true;
+          break;
+
+        default:
+          if (item->shortName[1] != '\0') {
+            fprintf(stderr, "Option #%d: Short name must be a single character\n", item->id);
+            isError = true;
+          }
+          break;
       }
     }
 
@@ -188,41 +208,41 @@ extern void scanopt_validate(option_t option_list[]) {
 
       root_item = scanopt_find(- option_list[i].id, option_list);
       if (root_item->id == 0) {
-        fprintf(stderr, "Option \"%s\" missing it's complement\n", SO_OPTION_NAME(item));
+        fprintf(stderr, "Option \"%s\": Does not have a complement\n", SO_OPTION_NAME(item));
         isError = true;
       }
       
       switch (SO_VAL_TYPE(item->type)) {
         case SO_VAL_SET:
           if (SO_VAL_TYPE(root_item->type) != SO_VAL_UNSET) {
-            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));
+            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item));
             isError = true;
           }
-          if (item->initValue == NULL) {
-            fprintf(stderr, "Option \"%s\" must be assigned an initial value\n", SO_OPTION_NAME(root_item));
+          if (root_item->initValue == NULL) {
+            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item));
             isError = true;
           }
           break;
 
         case SO_VAL_UNSET:
           if (SO_VAL_TYPE(root_item->type) != SO_VAL_SET) {
-            fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(root_item));
+            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item));
             isError = true;
           }
-          if (item->initValue == NULL) {
-            fprintf(stderr, "Option \"%s\" must be assigned an initial value\n", SO_OPTION_NAME(root_item));
+          if (root_item->initValue == NULL) {
+            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item));
             isError = true;
           }          
           break;
 
         default:
-          fprintf(stderr, "Option \"%s\" improperly defined complement\n", SO_OPTION_NAME(item));
+          fprintf(stderr, "Option \"%s\": Improperly defined complement\n", SO_OPTION_NAME(item));
           isError = true;
           break;
       }
 
-      if (SO_DUP_TYPE(item->type) != SO_DUP_OVERWRITE) {
-        fprintf(stderr, "Complement Option \"%s\" must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));
+      if (SO_DUP_TYPE(root_item->type) != SO_DUP_OVERWRITE) {
+        fprintf(stderr, "Option \"%s\": Must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));
         isError = true;
       }
     }
@@ -367,8 +387,6 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
         assert(false);
     }
   }
-  
-  scanopt_apply_env(option_list);
 
   return optind;
 }
@@ -568,6 +586,7 @@ void assign_variable(void *variable, int type, char * val) {
 static void scanopt_apply_env(option_t option_list[]) {
   option_t *item;
 
+  assert(false);
   for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list+i;
 
@@ -581,6 +600,21 @@ static void scanopt_apply_env(option_t option_list[]) {
         optcount ++;
         scanopt_define_option(item, value, option_list);
       }
+    }
+  }
+}
+
+
+static void option_apply_env(option_t *item, option_t option_list[]) {
+
+  assert(item->id > 0);  // What do we do for complements
+
+  if (item->envName != NULL) {
+    char *value = getenv(item->envName);
+    if (value != NULL) {
+      item->count++;
+      optcount ++;
+      scanopt_define_option(item, value, option_list);
     }
   }
 }
@@ -636,6 +670,8 @@ extern int scanopt_next(option_t option_list[]) {
 
     if (item->id == 0)   return -1;
 
+    option_apply_env(item, option_list);
+
     complement = UNSET;
     if (item->id < 0) {
       complement = SET;
@@ -659,7 +695,7 @@ extern int scanopt_next(option_t option_list[]) {
   if (item->variable != NULL) {
     assign_variable(item->variable, SO_VAL_TYPE(item->type), optarg);
   
-    if (SO_VAL_TYPE(item->type), SO_VAL_ARRAY) {
+    if (SO_VAL_TYPE(item->type) == SO_VAL_ARRAY) {
       (* (char ***) item->variable) = item->valueArray;
     }
   }
