@@ -13,7 +13,9 @@
 
 #include "scgi_netstring.h"
 #include "scanopt.h"
+
 #include "command_line.h"
+extern void set_command_line_options(int argc, char *argv[]);
 
 
 #define PID_FILE      "pid"
@@ -24,7 +26,7 @@
 #define MAX_ENVS (50)
 
 
-extern void set_command_line_options(int argc, char *argv[], char *home);
+extern void set_command_line_options(int argc, char *argv[]);
 
 
 #define bind_p(fd, addr, len) {    \
@@ -39,13 +41,17 @@ extern void set_command_line_options(int argc, char *argv[], char *home);
   if (retval != 0) perror("listen"); \
 }
 
+#define freopen_p(filename, mode, fp) {       \
+  FILE * fp;                                  \
+  fp = freopen(ERROR_FILE, "w", stderr);      \
+  if (fp == 0)                                \
+    perror("Unable to open error logfile\n"); \
+}
 
 
 int main(int argc, char *argv[], char **envp) {
 
-  char scgi_dir[FILENAME_MAX];
   char *document_home = DOCUMENT_DIR;
-
 
   int retval = 0;
 
@@ -60,27 +66,7 @@ int main(int argc, char *argv[], char **envp) {
   int reason;
   int status;
 
-
-  ////////////////////////////////////////////
-  // Determine the HOME for the SCGI Daemon
-  {
-    char *env_p;
-    env_p = getenv("SCGI_HOME");
-
-    if (env_p != NULL) {
-      strlcpy(scgi_dir, env_p, FILENAME_MAX);
-      strlcat(scgi_dir, "/", FILENAME_MAX);
-    } else {
-      env_p = getenv("HOME");
-      assert(env_p != NULL);
-      strlcpy(scgi_dir, env_p, FILENAME_MAX);
-      strlcat(scgi_dir, "/.scgi/", FILENAME_MAX);
-    }
-  }
-  // set default values that might be overridden by the command line:
-  // these are the values that are related to scgi_dir
-
-  set_command_line_options(argc, argv, scgi_dir);
+  set_command_line_options(argc, argv);
 
   if (foreground_flag == false) {
     pid = fork();
@@ -93,14 +79,10 @@ int main(int argc, char *argv[], char **envp) {
   }
 
   chdir(scgi_dir);
-  {
-    FILE * fp;
-    fp = freopen(ERROR_FILE, "w", stderr);
-    if (fp == 0) {
-         perror("Unable to open error logfile\n");
-    }
-  }
 
+  freopen_p(ERROR_FILE, "w", stderr);
+
+   
 
   // Setup the Socket
   if (port != 0) {
