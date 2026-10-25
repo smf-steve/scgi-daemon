@@ -24,8 +24,6 @@ Major difference is our versions popt/getopt..
 //          but this allows for CONFIG file to be used
 //          but this also allows simpler control per user
 
-
-
 ///// NOTES Above
 
 #include <unistd.h>
@@ -846,9 +844,9 @@ static void create_optstring(char *opt_string, int length, option_t option_list[
   return;
 }
 
-static void create_longopt_string(char *opt_string, int length, option_t option_list[]) {
+static void create_longopt_string(char *long_string, int length, option_t option_list[]) {
   // generates the string as per the `get_opt` utility
-
+  // at this time, this function is not needed
   assert(false);
 }
 
