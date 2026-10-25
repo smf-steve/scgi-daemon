@@ -440,10 +440,15 @@ extern option_t *scanopt_declare_complement(option_t option_list[], int id, int 
   assert(false);
 }
 
+extern option_t *scanopt_declare_env(option_t option_list[], int id, int argType, char *envName, void * variable, size_t size) {
+  option_t *item;
 
-extern option_t *scanopt_declare_env(option_t option_list[], int id, char *envName, size_t size) {
-  assert(false);
+  item = scanopt_declare_option(option_list, id, argType, NULL, NULL, envName, size);
+  scanopt_assign_variable(item, &variable, argType, NULL, NULL);
+
+  return item;
 }
+
 
 // set the global default for action to take on duplicate
 extern void scanopt_set_ondup(int value) {

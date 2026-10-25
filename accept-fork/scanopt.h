@@ -173,7 +173,7 @@ extern void scanopt_usage_envs(option_t option_list[], char *indent);
 // Option Declaration Functions
 extern option_t *scanopt_declare_option(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
 extern option_t *scanopt_declare_complement(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
-extern option_t *scanopt_declare_env(option_t option_list[], int id, char *envName, size_t size);
+extern option_t *scanopt_declare_env(option_t option_list[], int id, int argType, char *envName, void * variable, size_t size);
 
 extern void scanopt_set_ondup(int value);
   // The default 'on duplication is "SO_DUP_OVERWRITE"
