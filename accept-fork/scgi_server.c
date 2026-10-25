@@ -17,17 +17,8 @@
 #include "command_line.h"
 extern void set_command_line_options(int argc, char *argv[]);
 
-
-#define PID_FILE      "pid"
-#define ERROR_FILE    "error.log"
-#define DOCUMENT_DIR  "cgi"
-#define SOCKET_FILE   "socket"
-
-#define MAX_ENVS (50)
-
-
-extern void set_command_line_options(int argc, char *argv[]);
-
+#include "general.h"
+#define MAX_ENVS  (50)
 
 #define bind_p(fd, addr, len) {    \
   int retval;                      \

@@ -274,7 +274,6 @@ static void apply_option_definitions(int option_id) {
       break;
 
     case o_USER:
-      assert(false);
       fprintf(stderr, "Server not running as root. Hence unable to change effective uid to: %s", optarg);
       {
          struct passwd *record;

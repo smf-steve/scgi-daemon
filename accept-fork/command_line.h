@@ -1,6 +1,3 @@
-#define SET (1)
-#define UNSET (0)
-
 ////////////////////////////////////////////
 // COMMAND LINE and ENV PROCESSING
 // 
@@ -24,6 +21,7 @@
 //
 //
 
+#include "general.h"
 
 /* COMMAND LINE OPTIONS */
 #define  o_BIND       (1)
