@@ -710,7 +710,7 @@ extern void scanopt_validate(option_t option_list[]) {
 }
 
 
-extern void scanopt_apply_envs(option_t option_list[]) {
+extern void scanopt_apply_environment(option_t option_list[]) {
   option_t *item;
 
   for (int i = 0; option_list[i].id != 0; i++) {

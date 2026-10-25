@@ -197,7 +197,7 @@ extern option_t *scanopt_find_envName(char *env, option_t option_list[]);
 // Secondary API  (called within but could be used by...)
 extern void scanopt_initialize(option_t option_list[]);
 extern void scanopt_validate(option_t option_list[]);
-extern void scanopt_apply_envs(option_t option_list[]);
+extern void scanopt_apply_environment(option_t option_list[]);
 
 
 

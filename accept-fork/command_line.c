@@ -76,8 +76,8 @@ static void print_usage_header(char *indent);
 #ifndef ALTERNATIVE
 
 static option_t option_list[] = {
-// id,           argType,           long,        short,  envName
-  {o_CONF,       required_argument, "config"      },  // This option MUST be listed first
+// id,           argType,           long,        short,   envName
+  {o_CONF,       required_argument, "config"      },      // MUST be first
   {o_BIND,       required_argument, "bind",       "b",    "SCGI_BIND" },
   {o_FOREGROUND, no_argument,       "foreground", "f",    "SCGI_FOREGROUND" },
   {o_HELP,       no_argument,       "help",       "h"     },       
@@ -92,6 +92,11 @@ static option_t option_list[] = {
   {e_SCGI_DIR,  required_argument, NULL,         NULL,    "SCGI_DIR" },
   SO_OPTIONS_END()
 };
+
+// o_CONF update the environment variables
+// it must be called first via scanopt_next.
+// subsequent options will be defined based upon the revised env values
+// if called last, previous options will be defined based upon the revised env calls
 
 #else
 
@@ -211,16 +216,19 @@ static void print_usage(void) {
 static void print_usage_header(char *indent) {
 
   fprintf(stdout, "\nUsage:\n");
-  fprintf(stdout, "%sscgid [options] ( --port <number> | --socket ) [ program ]\n", indent);
-  fprintf(stdout, "%sscgid [ --version ] [ --help ] [ ignored ]\n", indent);
+  fprintf(stdout, "%sscgid [options] ( --port <number> | --socket ) \n", indent);
+  fprintf(stdout, "%sscgid [ --version ] [ --help ] [ ... ]\n", indent);
   fprintf(stdout, "%sscgid [ --conf <file> ]\n", indent);
   fprintf(stdout, "\n");
+  fprintf(stdout, "Note that ENV defintions are equivalent \n");
+  fprintf(stdout, "to using a command line option.\n");
+
   return;
 }
 
 
 static void apply_option_definitions(int option_id) {
-  int x;
+
   switch (option_id) {
     case e_SCGI_DIR:
       // it's okay if this value gets redefined
