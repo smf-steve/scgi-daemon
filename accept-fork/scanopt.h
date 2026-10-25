@@ -181,7 +181,7 @@ extern void scanopt_set_ondup(int value);
   //   SO_DUP_OVERWRITE, SO_DUP_IGNORE, SO_DUP_APPEND, SO_DUP_ERROR 
 
 // Option Definition Functions
-extern void scanopt_assign_variable(option_t *item, void *variable, int type, char *initialVal, char *defaultVal);
+extern void scanopt_assign_variable(option_t *item, void *variable, int type, char *initValue, char *defaultValue);
 extern void scanopt_assign_flag(option_t *item, void *variable);
 extern void scanopt_assign_nflag(option_t *item, void *variable);
 

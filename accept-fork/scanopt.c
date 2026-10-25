@@ -84,9 +84,7 @@ static void create_longopt_string(char *opt_string, int length, option_t option_
 //   e.g., "flag,required:,optional::, ...."
 
 
-
-
-static void option_apply_env(option_t *item, option_t option_list[]);
+static void apply_env(option_t *item, option_t option_list[]);
 
 
 ///////////////////////////////////////////////
@@ -233,7 +231,7 @@ extern int scanopt_next(option_t option_list[]) {
 
     if (item->id == 0)   return -1;
 
-    option_apply_env(item, option_list);
+    apply_env(item, option_list);
 
     complement = UNSET;
     if (item->id < 0) {
@@ -720,14 +718,8 @@ extern void scanopt_apply_envs(option_t option_list[]) {
     if (item->id < 0) continue;
     if (item->count > 0) continue;
 
-    if (item->envName != NULL) {
-      char *value = getenv(item->envName);
-      if (value != NULL) {
-        item->count++;
-        optcount ++;
-        define_option(item, value, option_list);
-      }
-    }
+    apply_env(item, option_list);
+
   }
 }
 
@@ -759,9 +751,9 @@ static void assign_variable(void *variable, int type, char *val) {
 }
 
 
-static void option_apply_env(option_t *item, option_t option_list[]) {
+static void apply_env(option_t *item, option_t option_list[]) {
 
-  assert(item->id > 0);  // What do we do for complements
+  assert(! (item->id < 0) );  // What do we do for complements
 
   if (item->envName != NULL) {
     char *value = getenv(item->envName);
