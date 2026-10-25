@@ -1,3 +1,6 @@
+#define SET (1)
+#define UNSET (0)
+
 ////////////////////////////////////////////
 // COMMAND LINE and ENV PROCESSING
 // 
@@ -35,15 +38,12 @@
 #define  o_VERBOSE   (12)
 #define  o_VERSION   (13)
 #define  o_WORKERS   (14)
-#define  e_SCGI_HOME  (15)
+#define  e_SCGI_DIR  (15)
 
-#define SET (1)
-#define UNSET (0)
-
+#define  MAX_OPTIONS 20
 
 
 // The following are variables that are defined via command line processing.
-extern char * scgi_dir;        // o_BIND
 extern char * server_ip;       // o_BIND
 extern int    port;            // o_PORT
 extern char * filter_name;     // o_FILTER
@@ -54,6 +54,7 @@ extern int    verbose_level;   // o_VERBOSE
 extern int    workers;         // o_WORKERS
 extern int    help_flag;       // o_HELP
 extern int    version_flag;    // o_VERSION
+extern char * scgi_dir;        // o_SCGI_DIR
 
 
 extern void set_command_line_options(int argc, char *argv[]);
