@@ -285,6 +285,7 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
   option_t item;
   char     *format;
 
+  fprintf(stdout, "Options\n");
   for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list[i];
 
@@ -342,10 +343,10 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
     }
     
     if (item.defaultValue != NULL) {
-      fprintf(stdout, "%s%sDEFAULT: %s\n", indent, indent, item.defaultValue);
+      fprintf(stdout, "\n%s%sDEFAULT: %s", indent, indent, item.defaultValue);
     }
     if (item.envName != NULL) {
-      fprintf(stdout, "%s%sENVIRONMENT VARIABLE: %s\n", indent, indent, item.envName);
+      fprintf(stdout, "\n%s%sENVIRONMENT VARIABLE: %s\n", indent, indent, item.envName);
     }
     fprintf(stdout, "\n");
   }
@@ -356,6 +357,8 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
 extern void scanopt_usage_envs(option_t option_list[], char *indent) {
   option_t item;
   char     *format;
+
+  fprintf(stdout, "Environment\n");
 
   for (int i = 0; option_list[i].id != 0; i++) {
     item = option_list[i];
@@ -370,47 +373,42 @@ extern void scanopt_usage_envs(option_t option_list[], char *indent) {
       format = item.format;
     }
     
-    fprintf(stdout, "%s=", item.envName);
+    fprintf(stdout, "%s", item.envName);
 
     switch(SO_ARG_TYPE(item.type)) {
       case SO_ARG_NONE: break;
       case SO_ARG_OPTIONAL:
         // no space before the option
-        fprintf(stdout, "[%s]", format);
+        fprintf(stdout, "=[%s]", format);
         break;
 
       case SO_ARG_REQUIRED:
-        fprintf(stdout, "%s", format);
+        fprintf(stdout, "=%s", format);
         break;
-      }
     }
-
+    fprintf(stdout, "\n");
     // Two main options:
     //   1. it is a covered by a command line option
     //   1. it is NOT covered by a command line option
 
     if (item.longName != NULL)
-      fprintf(stdout, "\tSee --%s above.\n", item.longName);
+      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, item.longName);
 
     if (item.longName == NULL && item.shortName != NULL)
-      fprintf(stdout, "\tSee --%s above.\n", item.shortName);
+      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, item.shortName);
 
     if (item.longName == NULL && item.shortName == NULL) {
-      fprintf(stdout, "\n");
       if (item.description != NULL) {
         fprintf(stdout, "%s%s%s\n", indent, indent, item.description);
       }
       if (item.defaultValue != NULL) {
         fprintf(stdout, "%s%sDEFAULT: %s\n", indent, indent, item.defaultValue);
       }
-      if (item.envName != NULL) {
-        fprintf(stdout, "%s%sENVIRONMENT VARIABLE: %s\n", indent, indent, item.envName);
-      }
       fprintf(stdout, "\n");
+    }
   }
   return;
 }
-
 
 
 // Option Declaration Functions
