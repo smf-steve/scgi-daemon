@@ -202,9 +202,8 @@ static void print_usage(void) {
   char *indent = "  ";
 
   print_usage_header(indent);
-  scanopt_usage(option_list, indent);
-  //scanopt_usage_options(option_list, indent);
-  //scanopt_usage_envs(option_list, indent);
+  scanopt_usage_options(option_list, indent);
+  scanopt_usage_envs(option_list, indent);
   exit(0);
 }
 

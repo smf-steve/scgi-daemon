@@ -140,23 +140,20 @@ extern int optcount;
 extern int optmax;
 
 typedef struct _option_t {
-  // MVP
   int      id;              // return value from scanopt_next
-  int      type;            // REQUIRED | TEXT | ERROR
+  int      type;            // OPTION_TYPE | ARG_TYPE | DUP_MODE
   char     *longName;
-  char     *shortName;      // typically a char, but to be consistent
+  char     *shortName;
   char     *envName;
-
 
   // Usage (--help) Information
   char     *description;
-  char     *format;         // e.g., "<number>"
+  char     *format;         // e.g., "number", default "arg"
 
-
-  // New Stuff
-  void     *variable;      // pointer to the appropriate type in which the final value is stored
-  char     *initValue;
-  char     *defaultValue;
+  // Variable Definition 
+  void     *variable;      // Pointer to the appropriate argument type 
+  char     *initValue;     // Initial value to the variable
+  char     *defaultValue;  // Default value when a optional value is not present
 
   // Working data:
   char     *value;
@@ -166,58 +163,41 @@ typedef struct _option_t {
 
 
 
-// Main APIs
-extern int   scanopt_scan(int argc, char *argv[], option_t option_list[]);
-extern int   scanopt_next(option_t option_list[]); // int flag);
-extern void  scanopt_usage(option_t option_list[], char *indent);
-
-extern void  scanopt_initialize(option_t option_list[]);
-extern void  scanopt_validate(option_t option_list[]);
+// Operational Functions
+extern int scanopt_scan(int argc, char *argv[], option_t option_list[]);
+extern int scanopt_next(option_t option_list[]);
+extern void scanopt_usage_options(option_t option_list[], char *indent);
+extern void scanopt_usage_envs(option_t option_list[], char *indent);
 
 
-extern option_t *scanopt_find(int id, option_t option_list[]);
-extern option_t *scanopt_find_shortName(int ch, option_t option_list[]);
-extern option_t *scanopt_find_env(char * env, option_t option_list[]);
+// Option Declaration Functions
+extern option_t *scanopt_declare_option(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
+extern option_t *scanopt_declare_complement(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
+extern option_t *scanopt_declare_env(option_t option_list[], int id, char *envName, size_t size);
 
 extern void scanopt_set_ondup(int value);
+  // The default 'on duplication is "SO_DUP_OVERWRITE"
+  // This functions changes the default to potentially:
+  //   SO_DUP_OVERWRITE, SO_DUP_IGNORE, SO_DUP_APPEND, SO_DUP_ERROR 
 
-extern option_t *scanopt_declare_option(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
-extern option_t *scanopt_assign_complement(option_t option_list[], int id, int argtype, char *longName, char *shortname, char *envName, size_t size);
-  // assign_usage: yes
-  // assign_variable: no
-
+// Option Definition Functions
+extern void scanopt_assign_variable(option_t *item, void *variable, int type, char *initialVal, char *defaultVal);
+extern void scanopt_assign_flag(option_t *item, void *variable);
+extern void scanopt_assign_nflag(option_t *item, void *variable);
 
 extern void scanopt_assign_usage(option_t *item, char *format, char *description);
-extern void scanopt_assign_flag(option_t *item, void * variable);
-extern void scanopt_assign_nflag(option_t *item, void * variable);
-extern void scanopt_assign_variable(option_t *item, void * variable, int type, char *initialVal, char *defaultVal);
 
 
-// // Secondary API
-extern void scanopt_optstring(char *opt_string, int length, option_t option_list[]);
-// generates the short form optstring as per `getopt_long`
-//   e.g., "b:c::d:e:fhl:p:s:e:w:vV"
-//
-//   prepend ":" to suppress error messages
-//   then have a rule to handle ":+"
-//      ":" silent mode
-//      "+" stop at first non-option argument
-
-extern void scanopt_longopt_struct(struct option *long_opt, int length, option_t option_list[]);
-// generates the struct option as per `getopt_long`
-
-extern void scanopt_longopt(char *long_string, option_t option_list[]);
-// generates the long form optstring as per `getopt` command line
-//   e.g., "flag,required:,optional::, ...."
+// Access functions
+extern option_t *scanopt_find(int id, option_t option_list[]);
+extern option_t *scanopt_find_shortName(int ch, option_t option_list[]);
+extern option_t *scanopt_find_envName(char *env, option_t option_list[]);
 
 
+// Secondary API  (called within but could be used by...)
+extern void scanopt_initialize(option_t option_list[]);
+extern void scanopt_validate(option_t option_list[]);
+extern void scanopt_apply_envs(option_t option_list[]);
 
-
-
-extern void  scanopt_add_description(option_t item, char *descript, char *format);
-extern void  scanopt_add_environment(option_t item, char *envName);
-extern void  scanopt_add_values(option_t item, char *initialValue, char *defaultValue);
-extern void  scanopt_add_variables(option_t item, void *variable);
-extern void  scanopt_opt_add_type(option_t item, int type);
 
 
