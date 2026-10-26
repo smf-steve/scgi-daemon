@@ -519,28 +519,47 @@ static void configure_options(option_t option_list[]) {
 
 #endif
 
+int filetype_p (char *dir, int filetype) {
+  struct stat stats;
+
+  if (stat(dir, &stats) != 0) {
+    return false;
+  }
+  switch (filetype) {
+    case S_IFREG:   return S_ISREG(stats.st_mode);
+    case S_IFDIR:   return S_ISDIR(stats.st_mode);
+    case S_IFSOCK:  return S_ISSOCK(stats.st_mode);
+    default: return false;
+  }
+  return true;
+}
+
 
 static char * define_scgi_dir(void) {
   // Determine the value of scgi_dir;
-  //   1. /tmp/
-  //   2. $HOME/.scgi/, if $HOME
+  //   1. $PWD
+  //   2. $HOME/.scgi/, if $HOME/.scgi
   //   3. $SCGI_HOME/, if $SCGI_HOME
   char * buffer;
   char * env_p;
 
+  env_p = getenv("SCGI_HOME");
+  if (env_p != NULL && filetype_p(env_p, S_IFDIR)) {
+    return env_p;
+  }
+
   buffer = malloc(sizeof(char)*FILENAME_MAX);
-  strlcpy(buffer, "/tmp/", FILENAME_MAX);
 
   env_p = getenv("HOME");
   if (env_p != NULL) {
     strlcpy(buffer, env_p, FILENAME_MAX);
-    strlcat(buffer, "/.scgi/", FILENAME_MAX);
+    strlcat(buffer, "/.scgi", FILENAME_MAX);
+    env_p = buffer;
   }
-  env_p = getenv("SCGI_HOME");
-  if (env_p != NULL) {
-    strlcpy(buffer, env_p, FILENAME_MAX);
-    strlcat(buffer, "/", FILENAME_MAX);
+  if (env_p != NULL && filetype_p(env_p, S_IFDIR)) {
+    return env_p;
   }
+
+  getcwd(buffer, FILENAME_MAX);
   return buffer;
 }
-

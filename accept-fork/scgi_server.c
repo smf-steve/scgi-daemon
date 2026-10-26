@@ -33,9 +33,9 @@ extern void set_command_line_options(int argc, char *argv[]);
 }
 
 #define freopen_p(filename, mode, fp) {       \
-  FILE * fp;                                  \
-  fp = freopen(ERROR_FILE, "w", stderr);      \
-  if (fp == 0)                                \
+  FILE * new_fp;                              \
+  new_fp = freopen(ERROR_FILE, "w", fp);      \
+  if (new_fp == 0)                            \
     perror("Unable to open error logfile\n"); \
 }
 
