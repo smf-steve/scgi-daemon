@@ -1,7 +1,7 @@
 # Makefile for the scgi-daemon using the accept-fork model
 TARGETS=scgid
-SRCS=scgi_server.c scanopt.c command_line.c
-OBJS=scgi_server.o scanopt.o command_line.o
+SRCS=scgi_server.c command_line.c
+OBJS=scgi_server.o command_line.o
 LIBS=scanopt 
 CFLAGS=-g -I ../include
 STH_DIR=
@@ -22,13 +22,12 @@ test:
 	done
 
 
-scgid: $(OBJS)
-	$(CC) -o $@ $(OBJS)
-
 #scgid: $(OBJS)
-#	$(CC) -o $@ $(OBJS) -I ../include \
-#	   -L ../lib -lscgi_netstring -lscanopt
-#
+#	$(CC) -o $@ $(OBJS) 
+
+scgid: $(OBJS)
+	$(CC) -o $@ $(OBJS) -I ../include -L ../lib -lscanopt
+
 
 clean:
 	$(RM) *.o 
