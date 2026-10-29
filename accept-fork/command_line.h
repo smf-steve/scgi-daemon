@@ -6,10 +6,10 @@
 //     1. special case for no command line options/arguments.
 //        - if present, it must be the only option
 //        - it is implicitly present, if the command line is empty
-//        - if it is implicity present, the config file is only 
-//          source if it existes -- no error otherwise
+//        - if it is implicitly present, the config file is only 
+//          source if it exists -- no error otherwise
 //
-//   scgi [options] ( --port=<number> | --socket=<filename> )
+//   scgi [options] ( --port=<number> | --socket )
 //
 //      2. normal processing of the command line for options
 //
@@ -28,6 +28,7 @@
 #define  o_CONF       (2)
 #define  o_FILTER     (4)
 #define  o_FOREGROUND (5)
+#define  o_DAEMON    (-5)
 #define  o_HELP       (6)
 #define  o_PORT       (8)
 #define  o_SOCKET     (9)

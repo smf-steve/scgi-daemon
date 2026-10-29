@@ -79,17 +79,18 @@ static option_t option_list[] = {
 // id,           argType,           long,        short,   envName
   {o_CONF,       required_argument, "config"      },      // MUST be first
   {o_BIND,       required_argument, "bind",       "b",    "SCGI_BIND" },
-  {o_FOREGROUND, no_argument,       "foreground", "f",    "SCGI_FOREGROUND" },
+  {o_FILTER,     required_argument, "filter",     NULL,   "SCGI_FILTERNAME" },
+  {o_FOREGROUND, SO_FLAG,           "foreground", "f",    "SCGI_FOREGROUND" },
+  {o_DAEMON,     SO_NFLAG,          "daemon",     "d",    "SCGI_DAEMON"},
+  {e_SCGI_DIR,   required_argument, NULL,         NULL,    "SCGI_HOME" },
   {o_HELP,       no_argument,       "help",       "h"     },       
+  {o_UDS,        no_argument,       "uds"         },
   {o_PORT,       required_argument, "port",       "p",    "SCGI_PORT" },
   {o_SOCKET,     no_argument,       "socket",     NULL,   "SCGI_SOCKET" },
-  {o_UDS,        no_argument,       "uds"         },
-  {o_FILTER,     required_argument, "filter",     NULL,   "SCGI_FILTERNAME" },
-  {o_WORKERS,    required_argument, "workers",    "w",    "SCGI_WORKERS" },
   {o_USER,       required_argument, "user",       "u",    "SCGI_USER" },
   {o_VERBOSE,    optional_argument, "verbose",    "v",    "SCGI_VERBOSE" },
   {o_VERSION,    no_argument,       "version",    "V"     },      
-  {e_SCGI_DIR,  required_argument, NULL,         NULL,    "SCGI_DIR" },
+  {o_WORKERS,    required_argument, "workers",    "w",    "SCGI_WORKERS" },
   SO_OPTIONS_END()
 };
 
@@ -220,8 +221,8 @@ static void print_usage_header(char *indent) {
   fprintf(stdout, "%sscgid [ --version ] [ --help ] [ ... ]\n", indent);
   fprintf(stdout, "%sscgid [ --conf <file> ]\n", indent);
   fprintf(stdout, "\n");
-  fprintf(stdout, "Note that ENV defintions are equivalent \n");
-  fprintf(stdout, "to using a command line option.\n");
+  fprintf(stdout, "Note that ENV defintions are equivalent");
+  fprintf(stdout, " to using a command line option.\n");
 
   return;
 }
@@ -275,8 +276,8 @@ static void apply_option_definitions(int option_id) {
 
     ///////////////////////////////////////////////////
     // Daemon Related Options
-
-    case o_FOREGROUND:
+    case o_DAEMON: break;
+    case o_FOREGROUND: break;
       foreground_flag  = SET;
       // This can be handled via a scanopt variable
       break;
@@ -400,6 +401,11 @@ static void configure_options(option_t option_list[]) {
   scanopt_assign_usage(item, NULL, "Have the server run in the foreground");
   scanopt_assign_flag(item, (void *) &foreground_flag);
 
+  // o_DAEMON: foreground_flag
+  item = scanopt_find(o_DAEMON, option_list);
+  scanopt_assign_usage(item, NULL, "Have the server run as a daemon");
+  scanopt_assign_nflag(item, (void *) &foreground_flag);
+
   // o_HELP: help_flag
   item = scanopt_find(o_HELP, option_list);
   scanopt_assign_usage(item, NULL, "Display a short summary of available command line options.");
@@ -469,6 +475,10 @@ static void configure_options(option_t option_list[]) {
   scanopt_assign_usage(item, NULL, "Have the server run in the foreground");
   scanopt_assign_flag(item, (void *) &foreground_flag);
 
+  //item = scanopt_declare_option(option_list, o_DAEMON, no_argument, "daemon", "d", "SCGI_DAEMON", MAX_OPTIONS);
+  //scanopt_assign_usage(item, NULL, "Have the server run as a daemon");
+  //scanopt_assign_nflag(item, (void *) &foreground_flag);
+
   // o_HELP: help_flag
   item = scanopt_declare_option(option_list, o_HELP, no_argument, "help", "h", NULL, MAX_OPTIONS);
   scanopt_assign_usage(item, NULL, "Display a short summary of available command line options.");
@@ -537,9 +547,9 @@ int filetype_p (char *dir, int filetype) {
 
 static char * define_scgi_dir(void) {
   // Determine the value of scgi_dir;
-  //   1. $PWD
+  //   1. $SCGI_HOME/, if $SCGI_HOME
   //   2. $HOME/.scgi/, if $HOME/.scgi
-  //   3. $SCGI_HOME/, if $SCGI_HOME
+  //   3. $PWD
   char * buffer;
   char * env_p;
 
