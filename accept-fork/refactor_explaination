@@ -1,0 +1,25 @@
+After some debugging, I determined that
+
+1. having a table to enumerate the options like getopt_long is good.
+   - having a single table that enumerates all options is confusing
+   - having subsequent APIs to, in effect, add information to options cumberson
+
+1. managing complements and synonyms is confusing
+
+
+After considering a number of alternatives, I have determined..
+
+1. a three table approach is better
+   - with two tables being optional
+
+1. the single required table, provides the straightforward functionality
+   of getopts_long
+   - but allows us to add an infinite number of synonym
+
+1. providing an explicit type (with other functionality) into a table that
+   manages a "flag" variable (ala gitopt_long) allows 
+   - cleanup descriptions
+   - allows for initial and default values
+   - better management of complements
+
+As such, starting to refactor the scanop code under the new approach.
