@@ -38,23 +38,63 @@
 //
 
 // 1. The three argument types are defined consistent with `getopt`
-#define SO_ARG_TYPE(var)   (var & 0x000f)
-#define SO_ARG_NONE        (0x000)
-#define SO_ARG_REQUIRED    (0x001)
-#define SO_ARG_OPTIONAL    (0x002)
+//    They are associated with the names.type
+//    names.type =  0000 0000 0000 000x  : x is the SO_ARG_TYPE
+//    names.type =  xxxx yyyy yyyy yyyy  : x is the ARG bla, y is th
+#define SO_ARG_TYPE(var)   (var & 0x000f)  // NOT USED
+#define SO_ARG_NONE        (0x0000)
+#define SO_ARG_REQUIRED    (0x0001)
+#define SO_ARG_OPTIONAL    (0x0002)
+
+// Complements are, e.g., flags that are opposite, e.g., rm -f -i
+// This are the arg types..
+#define SO_TYPE_ROOT       (0x00 << 24)   // SO_TYPE_ROOT
+#define SO_TYPE_SYN        (0x80 << 24)
+#define SO_TYPE_COMP       (0x90 << 24)
+
+/////////////////////////////////////////
+
+// Defaults for VARABLE TYPES
+//  The first is not necessary
+#define SO_ARG        (SO_VAL_TEXT  | SO_DUP_OVERWRITE)
+#define SO_OPTIONAL   (SO_VAL_TEXT  | SO_DUP_OVERWRITE)
+#define SO_NONE       (SO_VAL_NULL  | SO_DUP_OVERWRITE)
+
+// these make sense if we support DUP_MODE
+#define SO_FLAG       (SO_VAL_SET   | SO_DUP_OVERWRITE)
+#define SO_NFLAG      (SO_VAL_UNSET | SO_DUP_OVERWRITE)
+#define SO_COUNTER    (SO_VAL_COUNT | SO_DUP_OVERWRITE)
+
+#define SO_APPEND     (SO_VAL_TEXT  | SO_DUP_APPEND)
 
 
+
+///////////////////
 // 1. The supported types for the argument associated with an option
-#define SO_VAL_TYPE(var)   (var & 0x00f0)
-#define SO_VAL_NULL        (0x000)
-#define SO_VAL_TEXT        (0x000)  // the default
-#define SO_VAL_SET         (0x010)  // sets the value to 1
-#define SO_VAL_UNSET       (0x020)  // clears the value to 0
-#define SO_VAL_INT         (0x030)  // conversion done at the end
-#define SO_VAL_LONG        (0x040)  // conversion done at the end
-#define SO_VAL_FLOAT       (0x050)  // conversion done at the end
-#define SO_VAL_DOUBLE      (0x060)  // conversion done at the end
-#define SO_VAL_ARRAY       (0x070)  // an array of strings
+//    associated with the variable->type
+//
+//   so change this to VAR->type 
+
+#define SO_VAL_TEXT        (0x0000)
+#define SO_VAL_NULL        (0x0000)  // the default
+#define SO_VAL_DEFAULT     (0x0000)  // the default
+
+// Associated with NO ARGS
+#define SO_VAL_SET         (0x0010)  // sets the value to 1
+#define SO_VAL_UNSET       (0x0020)  // clears the value to 0
+#define SO_VAL_COUNT       (0x0030)  // an int
+
+// Associated with ~ NO ARGS
+#define SO_VAL_INT         (0x0040)  // conversion done at the end
+#define SO_VAL_LONG        (0x0050)  // conversion done at the end
+#define SO_VAL_FLOAT       (0x0060)  // conversion done at the end
+#define SO_VAL_DOUBLE      (0x0070)  // conversion done at the end
+#define SO_VAL_ARRAY       (0x0080)  // an array of text
+
+
+
+
+
 
 // Two value types are supported to address common functionality:
 //   The SET/UNSET type is provided as a Boolean type to support
@@ -74,21 +114,14 @@
 //
 
 // 1. the duplicative mode to address multiple uses of an option.
-#define SO_DUP_TYPE(var)   (var & 0x0f00)
-#define SO_DUP_OVERWRITE   (0x000)  // Use the LAST value associates with an option (DEFAULT)
-#define SO_DUP_IGNORE      (0x100)  // Use the First value associated with an option
-#define SO_DUP_APPEND      (0x200)  // Append the value so all duplicates can be   (presumes )
-#define SO_DUP_ERROR       (0x300)  // Emit an error upon a duplicate option
+
+#define SO_DUP_DEFAULT     (0x0000)  // The global default is OVERWRITE -- which can be overridden
+#define SO_DUP_OVERWRITE   (0x0100)  // Use the LAST value associates with an option (DEFAULT)
+#define SO_DUP_IGNORE      (0x0200)  // Use the First value associated with an option
+#define SO_DUP_APPEND      (0x0300)  // Append the value so all duplicates can be   (presumes )
+#define SO_DUP_ERROR       (0x0400)  // Emit an error upon a duplicate option
+
 #define SO_DUP_MAX         (10)     // Maximum number of values that can be appended
-
-
-// Defaults for 
-#define SO_ARG        (SO_ARG_REQUIRED | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
-#define SO_OPTIONAL   (SO_ARG_OPTIONAL | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
-#define SO_NONE       (SO_ARG_NONE     | SO_VAL_TEXT  | SO_DUP_OVERWRITE)
-#define SO_FLAG       (SO_ARG_NONE     | SO_VAL_SET   | SO_DUP_OVERWRITE)
-#define SO_NFLAG      (SO_ARG_NONE     | SO_VAL_UNSET | SO_DUP_OVERWRITE)
-#define SO_APPEND     (SO_ARG_REQUIRED | SO_VAL_TEXT  | SO_DUP_APPEND)
 
 
 // During the final processing stage `scanopt_next`, you can specify 
@@ -118,15 +151,19 @@
 
 #define SO_ID_ERROR     (0xffff)
 
-// Compliments are, e.g., flags that are opposite, e.g., rm -f -i
-#define SO_COMPLEMENT(x) (-x)
 
-// Use the following to support literal definition of an option_t;
-#define SO_OPTION_END()  { 0 }
-#define SO_OPTIONS_END() { 0 }
+#define SO_SYNONYM(name) (SO_TYPE_SYN | name)
+#define SO_SYN(name) SO_SYNONYM(name)
+
+#define SO_COMPLEMENT(variable) (SO_TYPE_COMP | variable)
+#define SO_COMP(variable) SO_COMPLEMENT(variable)
 
 
-typedef union _opt_value_t {
+// Use the following to support literal definition of an scanopt_t;
+#define SO_TABLE_END() { 0 }
+
+
+typedef union {
   char * sVal;
   int    iVal;
   long   lVal;
@@ -135,69 +172,90 @@ typedef union _opt_value_t {
   char **aVal;
 } opt_value_t;
 
-extern opt_value_t optvalue;
-extern int optcount;
-extern int optmax;
 
-typedef struct _option_t {
+// Object Data
+extern opt_value_t optvalue;
+extern int         optcount;   // the number of options/envs used
+extern char        *optname;
+extern int         optmax;
+
+// extern int    optreset;
+// extern int    optind;
+// extern char   *optarg;
+
+
+
+typedef struct {
   int      id;              // return value from scanopt_next
   int      type;            // OPTION_TYPE | ARG_TYPE | DUP_MODE
   char     *longName;
   char     *shortName;
   char     *envName;
+} scanopt_names_t;
 
-  // Usage (--help) Information
-  char     *description;
-  char     *format;         // e.g., "number", default "arg"
-
-  // Variable Definition 
-  void     *variable;      // Pointer to the appropriate argument type 
+// Variable / Flag Definition 
+typedef struct {
+  int      id;
+  int      type;           //
+  void     *address ;      // Address in which the value is to be stored 
   char     *initValue;     // Initial value to the variable
   char     *defaultValue;  // Default value when a optional value is not present
-
-  // Working data:
-  char     *value;
-  char     *valueArray[SO_DUP_MAX];   // argv-style array of values
-  int      count;                     // command-line reference count
-} option_t;
+} scanopt_variable_t;
 
 
+// Usage (--help) Information
+typedef struct {
+  int      id;
+  char     *format;         // e.g., "number", default "arg"
+  char     *text;
+} scanopt_usage_t; 
+
+typedef struct scanopt_instance_t *  scanopt_t; 
+
+
+extern scanopt_t scanopt_create(int count);
+extern scanopt_t scanopt_new(scanopt_names_t names[], scanopt_usage_t usages[], scanopt_variable_t variables[]);
+extern void scanopt_destroy(scanopt_t instance);
 
 // Operational Functions
-extern int scanopt_scan(int argc, char *argv[], option_t option_list[]);
-extern int scanopt_next(option_t option_list[]);
-extern void scanopt_usage_options(option_t option_list[], char *indent);
-extern void scanopt_usage_envs(option_t option_list[], char *indent);
+extern int scanopt_scan(scanopt_t instance, int argc, char *argv[]);
+extern int scanopt_next(scanopt_t instance);
+extern void scanopt_usage_options(scanopt_t instance, char *indent);
+extern void scanopt_usage_envs(scanopt_t instance, char *indent);
 
 
-// Option Declaration Functions
-extern option_t *scanopt_declare_option(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
-extern option_t *scanopt_declare_complement(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
-extern option_t *scanopt_declare_env(option_t option_list[], int id, int argType, char *envName, void * variable, size_t size);
-
-extern void scanopt_set_ondup(int value);
+extern void scanopt_set_ondup(scanopt_t instance, int value);
   // The default 'on duplication is "SO_DUP_OVERWRITE"
   // This functions changes the default to potentially:
   //   SO_DUP_OVERWRITE, SO_DUP_IGNORE, SO_DUP_APPEND, SO_DUP_ERROR 
 
-// Option Definition Functions
-extern void scanopt_assign_variable(option_t *item, void *variable, int type, char *initValue, char *defaultValue);
-extern void scanopt_assign_flag(option_t *item, void *variable);
-extern void scanopt_assign_nflag(option_t *item, void *variable);
 
-extern void scanopt_assign_usage(option_t *item, char *format, char *description);
+// Secondary API  (called within but could be used by...)
+//extern void scanopt_initialize(scanopt_t options[]);
+extern void scanopt_initialize(scanopt_t object, 
+                               scanopt_usage_t usages[],
+                               scanopt_variable_t variables[]);
+
+extern void scanopt_validate(scanopt_t instance);
+extern void scanopt_apply_environment(scanopt_t instance);
+
+
+
+
+// Option Definition Functions
+//extern void scanopt_assign_variable(scanopt_t *item, void *variable, int type, char *initValue, char *defaultValue);
+//extern void scanopt_assign_flag(scanopt_t *item, void *variable);
+//extern void scanopt_assign_nflag(scanopt_t *item, void *variable);
+
+//extern void scanopt_assign_usage(scanopt_t *item, char *format, char *description);
 
 
 // Access functions
-extern option_t *scanopt_find(int id, option_t option_list[]);
-extern option_t *scanopt_find_shortName(int ch, option_t option_list[]);
-extern option_t *scanopt_find_envName(char *env, option_t option_list[]);
+//extern scanopt_t *scanopt_find(int id, scanopt_t options[]);
+//extern scanopt_t *scanopt_find_shortName(int ch, scanopt_t options[]);
+//extern scanopt_t *scanopt_find_envName(char *env, scanopt_t options[]);
 
-
-// Secondary API  (called within but could be used by...)
-extern void scanopt_initialize(option_t option_list[]);
-extern void scanopt_validate(option_t option_list[]);
-extern void scanopt_apply_environment(option_t option_list[]);
-
-
-
+// Option Declaration Functions
+//extern scanopt_t *scanopt_declare_option(scanopt_t options[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
+//extern scanopt_t *scanopt_declare_complement(scanopt_t options[], int id, int argType, char *longName, char *shortname, char *envName, size_t size);
+//extern scanopt_t *scanopt_declare_env(scanopt_t options[], int id, int argType, char *envName, void * variable, size_t size);

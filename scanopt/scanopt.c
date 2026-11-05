@@ -12,7 +12,7 @@ Major difference is our versions popt/getopt..
   - argument types include the ability to deal with duplicates
     - supports the http approach of -c & -C
   - we have alias/synonym
-  - we have opposites:  e.g., --force, --inquire
+  - we have complements:  e.g., --force, --inquire
   - we define default values
   - we incorporate Env Variable into the process
 
@@ -44,9 +44,36 @@ Major difference is our versions popt/getopt..
 #include "scanopt.h"
 
 
-#define SO_OPTION_NAME(item) (item->longName != NULL ? item->longName : \
-                             ((item->envName != NULL)? item->envName : item->shortName))
+#define SO_OPTION_NAME(names) ((names->longName != NULL) ? names->longName : \
+                              ((names->envName  != NULL)? names->envName : names->shortName))
 
+#define SO_NAME(item, tag)     (item->names->tag)
+#define SO_VARIABLE_TYPE(item) ((item->variable == NULL)? SO_VAL_NULL : (SO_VAL_TYPE(item->variable->type)))
+#define SO_VARIABLE_DUP(item)  ((item->variable == NULL)? SO_VAL_NULL : (SO_DUP_TYPE(item->variable->type)))
+
+
+
+#define SO_INIT_VAL(item)      ((item->variable == NULL)? NULL : (item->variable->initValue))
+#define SO_DEFAULT_VAL(item)   ((item->variable == NULL)? NULL : (item->variable->defaultValue))
+
+
+
+#define SO_OPTION_ROOT(item)     (item->names->type & 0x00FFFFFF)
+#define SO_OPTION_TYPE(item)     (item->names->type & (0xFF << 24))
+#define SO_OPTION_ARG(item)      (item->names->type & 0xFF)
+
+#define SO_IS_OPTION_ROOT(item)     (SO_OPTION_TYPE(item) == SO_TYPE_ROOT)
+#define SO_IS_OPTION_SYN(item)      (SO_OPTION_TYPE(item) == SO_TYPE_SYN)
+#define SO_IS_OPTION_COMP(item)     (SO_OPTION_TYPE(item) == SO_TYPE_COMP)
+
+
+#define SO_VAL_TYPE(type)  (type & 0x00f0)
+#define SO_VAL_MASK        (0xff0f)
+
+#define SO_DUP_TYPE(type)  (type & 0x0f00)
+#define SO_DUP_MASK        (0xf0ff)
+
+#define SO_IS_DUP_APPEND(item) (SO_VARIABLE_DUP(item) == SO_DUP_APPEND)
 
 // The internal global variables
 // These are reassertion of the getopt_long global variables, and
@@ -55,17 +82,65 @@ Major difference is our versions popt/getopt..
 extern int    optreset;
 extern int    optind;
 extern char   *optarg;
-opt_value_t   optvalue;   
-int           optmax    = 0;   // max number of options and envs
-int           optcount  = 0;   // the number of options/envs used
-int           optondup  = SO_DUP_OVERWRITE;
+extern char   *optname;
+extern int    optcount;
+extern int    optmax;
 
 
-static void assign_variable(void *variable, int type, char *val);
+opt_value_t optvalue;
+int optcount = 0;
+int optmax = 0;
+char *optname;
 
-static void define_option(option_t *item, char *value, option_t option_list[]);
+  // this value mirrors instance->count;
+  // need to set optcount this value within scanopt_next -- envs are applied here
+  // need to set instance-> in scanopt_next and (?) scanopt_scan
+//reframe complement
 
-static void create_optstring(char *opt_string, int length, option_t option_list[]);
+
+typedef struct {
+  int      id;              // return value from scanopt_next
+  scanopt_names_t *names;
+
+  // Usage (--help) Information
+  scanopt_usage_t *usage;
+
+  // Variable Definition 
+  scanopt_variable_t *variable;
+
+  // Working data:
+  char     *value;
+  char     *valueArray[SO_DUP_MAX];   // argv-style array of values
+  int      count;                     // command-line reference count
+} option_t;
+
+
+struct scanopt_instance_t {
+  opt_value_t   value;   
+  int           max;
+  int           count;
+  int           onDup;
+  option_t      options[];
+};
+
+
+// Access functions
+// make the api of find_* based upon scanopt_name_t table
+
+static option_t *find_id(int id, option_t options[]);
+//static option_t *find_longName(char *longName, option_t options[]) {
+static option_t *find_shortName(int ch, option_t options[]);
+//static option_t *find_envName(char *env, option_t options[]);
+
+static scanopt_usage_t    *search_usage(int id, scanopt_usage_t usage[]);
+static scanopt_variable_t *search_variable(int id, scanopt_variable_t variable[]);
+
+
+static void assign_variable(scanopt_variable_t *variable, void *val);
+
+static void define_option(option_t *item, int complement, char *value);
+
+static void create_optstring(char *opt_string, int length, option_t options[]);
 // generates the short form optstring as per `getopt_long`
 //   e.g., "b:c::d:e:fhl:p:s:e:w:vV"
 //
@@ -74,45 +149,107 @@ static void create_optstring(char *opt_string, int length, option_t option_list[
 //      ":" silent mode
 //      "+" stop at first non-option argument
 
-static void create_longopt_struct(struct option *long_opt, int length, option_t option_list[]);
+static void create_longopt_struct(struct option *long_opt, int length, option_t options[]);
 // generates the struct option as per `getopt_long`
 
-static void create_longopt_string(char *opt_string, int length, option_t option_list[]);
+static void create_longopt_string(char *opt_string, int length, option_t options[]);
 // generates the long form optstring as per `getopt` command line
 //   e.g., "flag,required:,optional::, ...."
 
 
-static void apply_env(option_t *item, option_t option_list[]);
+static void apply_env(option_t *item, option_t options[]);
 
 
 ///////////////////////////////////////////////
 
+extern scanopt_t scanopt_create(int size) {
+  size_t  space;
+
+  space = sizeof(struct scanopt_instance_t) + sizeof(option_t)*(size + 1);
+  scanopt_t instance = calloc(space, sizeof(char));
+  instance->max  = size;
+
+  // The rest do not need to be initialized, since `calloc`
+  // was used to allocate the spaces--all are zeros
+  //
+  // instance->value.sVal = NULL;
+  // instance->count = 0;
+  // instance->onDup = SO_DUP_OVERWRITE;
+  // for (int i = 0; i <= size; i++) {
+  //   instance -> options[i].id = 0;
+  // }
+
+  return instance;
+}
+
+extern void scanopt_destroy(scanopt_t instance) {
+   free(instance);
+}
+
+extern scanopt_t scanopt_new(scanopt_names_t names[], scanopt_usage_t usage[], scanopt_variable_t variable[]) {
+  scanopt_t instance;
+  option_t *options;
+  option_t *item;
+
+  extern int optmax;
+
+  for (optmax = 0; names[optmax].id > 0; optmax++);
+  instance = scanopt_create(optmax);
+
+  assert(optmax == instance->max);
+
+  options = instance->options;
+
+  for (int i = 0; names[i].id != 0; i++) {
+    item = options+i; 
+    
+    item->id       = names[i].id; 
+    item->names    = &names[i];
+    item->usage    = search_usage(item->id, usage);
+    item->variable = search_variable(item->id, variable);
+
+    // All is set to zero, so the following is not needed.
+    item->value = NULL;
+    for (int i = 0; i <= SO_DUP_MAX; i++) {
+      if (item->valueArray[i] == NULL)  break;
+      item->valueArray[i] = NULL;
+    }
+    item->count = 0;
+    item->value = SO_INIT_VAL(item);
+  }
+  return instance;
+}
+
+
+
 // Operational Functions
-extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
-  int           isError = false;
+extern int scanopt_scan(scanopt_t instance, int argc, char *argv[]) {
+  option_t      *options = instance->options;
   option_t      *item;
 
-  // Variables associates with the use of `getopt_long`
-  int           ch;
-  char          *opt_string;
-  struct option *long_opts;
+  // does optmax need to be moved to an extern to 
+  // marry up with getopt_long?
+
+  int           optmax = instance->max;
+
+  int           isError = false;
+
+  // onDup should be set to the instance default?
+  // then reset by individual options?
+  int           onDup;
+  int           complement;
 
   extern int    optreset;
   extern int    optind;
   extern char   *optarg;
-  extern int    optmax;
 
-  scanopt_validate(option_list);
-  scanopt_initialize(option_list);
+  // Variables associates with the use of `getopt_long`
+  int           ch;
+  char          opt_string[(optmax+1) * 3];
+  struct option long_opts[optmax + 1];
 
-  // the following does not work.
-  // opt_string     = alloca(sizeof(char) * optmax * 3);   // each option could be "x::"
-  // long_opts      = alloca(sizeof(struct option)* optmax);
-  opt_string     = malloc(sizeof(char) * optmax * 3);   // each option could be "x::"
-  long_opts      = malloc(sizeof(struct option)* optmax);
-
-  create_optstring(opt_string, optmax * 3, option_list);
-  create_longopt_struct(long_opts, optmax + 1, option_list);
+  create_optstring(opt_string, (optmax+1) * 3, options);
+  create_longopt_struct(long_opts, optmax + 1, options);
 
   opterr = 0;    // Disable messages
   optreset = 1;  // Ensure we start at the befinning
@@ -121,7 +258,7 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
     //   -1  : when argv list is exhausted
     //    0  : when a flag has been set... (will no happen in our case)
     // <256  : Short Option
-    // >256  : Long Options
+    // >=256 : Long Options
     if (ch <= 0xff) {   // ShortOp was provided by the user
       switch (ch) {
         // If there is an error, should we return: SO_ID_ERROR
@@ -139,41 +276,54 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
           break;
 
         default:
-          item = scanopt_find_shortName(ch, option_list);
+          item = find_shortName(ch, options);
           ch = item->id;
       }
     } else {
       ch = ch >> 8;
-      item = scanopt_find(ch, option_list);
+      item = find_id(ch, options);
     }
     //////////////////////////////////////////////
 
     assert(item->id != 0);
-    item->count ++;
+    assert(!SO_IS_OPTION_SYN(item));
+
+    complement = false;
+    if (SO_IS_OPTION_COMP(item)) {
+      item = find_id(SO_OPTION_ROOT(item), options);
+      complement = true;
+    }
+    item->count++;
 
     //////////////////////////////////////////////
     // First use of the option
     if (item->count == 1) {
-      optcount ++;
-      define_option(item, optarg, option_list);
+      instance->count++;
+      define_option(item, complement, optarg);
       continue;
     }
 
     ///////////////////////////////////////////////
     // Subsequent use of the option
-    switch (SO_DUP_TYPE(item->type)) {
+    if (item->variable == NULL) {
+      onDup = instance->onDup;
+    } else {
+      onDup = SO_VARIABLE_DUP(item);
+    }
+
+    switch (onDup) {
       case SO_DUP_ERROR:
-        fprintf(stderr, "Invalid duplicate use of --%s\n", SO_OPTION_NAME(item));
+        fprintf(stderr, "Invalid duplicate use of --%s\n", SO_OPTION_NAME(item->names));
         isError = true;
         break;
 
       case SO_DUP_OVERWRITE:
-        define_option(item, optarg, option_list);
+        define_option(item, complement, optarg);
         break;
 
       case SO_DUP_IGNORE:
         // skipping/ignoring the duplicate
-        fprintf(stderr, "Warning duplicate use of --%s\n", SO_OPTION_NAME(item));
+        fprintf(stderr, "Warning duplicate use of --%s\n", SO_OPTION_NAME(item->names));
         break;
 
       case SO_DUP_APPEND:
@@ -189,22 +339,40 @@ extern int scanopt_scan(int argc, char *argv[], option_t option_list[]) {
   return optind;
 }
 
+// need to deal with optcount
 
-extern int scanopt_next(option_t option_list[]) {
-  static int current_index = 0;
-  static int initialized = false;
+extern int scanopt_next(scanopt_t instance) {
+  option_t *options = instance->options;
+  int      optmax = instance->max;
 
   option_t *item;
   int      complement;
+
+  static int current_index = 0;
+  static int initialized = false;
 
   if (initialized == false) {
     initialized = true;
     current_index = 0;
   }
 
+  // scanopt_next can return 
+  // 1. all, but no utility
+  //    if a syn, then return the root info, but with the compid
+  //    if a comp, then return the root info, but with compid
+  // 1. only those options that have been applied
+  //    (here only the root options are relevant)
+  //    but if we return only the root and they have setup 
+  //    their arm to be only the nonroot... they will never see it
+  //    - but the argument is that the syn and complements are secondary
+  // 1. only those options that have been applied
+  //    -- and DON'T have an associated variable
+  //
+
+
     // Not sure of the utility of having a flag of what to return
     // do {
-    //   current_index ++;
+    //   current_index++;
     //   switch (flag) {
 
     //     case SO_OPTIONS_NOVAR:
@@ -224,89 +392,83 @@ extern int scanopt_next(option_t option_list[]) {
     // } while (true);
 
   do {
-    item = &(option_list[current_index]);
-    current_index ++;
+    item = options+current_index; current_index++;
 
-    if (item->id == 0)   return -1;
+    if (item->id == 0) return -1;
 
-    apply_env(item, option_list);
+    // Information is stored on the root
+    // So never return anything that is NOT associated with the root
+    if (SO_IS_OPTION_SYN(item)) continue;
+    if (SO_IS_OPTION_COMP(item)) continue;
 
-    complement = UNSET;
-    if (item->id < 0) {
-      complement = SET;
-      item = scanopt_find(-item->id, option_list);
-    }
+    if (item->count == 0) apply_env(item, options);
 
   } while (item->count == 0);
 
-  optind = current_index;         // relative to the option_list NOT argv
-  // optopt = item.id;            // does not make sense
-
+  optname = SO_OPTION_NAME(item->names);
   optarg = item->value;
-  if (complement == SET) {
-    if (item->value[0] == '0') {
-      optarg = "1";
-    } else {
-      optarg = "0";
-    }
-  }
+  optcount = item->count;
 
-  if (item->variable != NULL) {
-    assign_variable(item->variable, SO_VAL_TYPE(item->type), optarg);
-  
-    if (SO_VAL_TYPE(item->type) == SO_VAL_ARRAY) {
-      (* (char ***) item->variable) = item->valueArray;
-    }
-  }
+  assign_variable(item->variable, (void *)optarg);
 
-  switch (SO_VAL_TYPE(item->type)) {
-    case SO_VAL_TEXT:   optvalue.sVal = optarg; break;
+  // Can I merge the following in with assign_variable?
+  switch (SO_VARIABLE_TYPE(item)) {
+    case SO_VAL_TEXT:   optvalue.sVal = (char *)optarg; break;
 
     case SO_VAL_SET:    //merge
     case SO_VAL_UNSET:  //merge
-    case SO_VAL_INT:    optvalue.iVal = atoi(optarg); break;
+    case SO_VAL_COUNT:  //merge
+    case SO_VAL_INT:    optvalue.iVal = atoi((char *)optarg); break;
 
-    case SO_VAL_LONG:   optvalue.lVal = atol(optarg); break;
+    case SO_VAL_LONG:   optvalue.lVal = atol((char *)optarg); break;
 
-    case SO_VAL_FLOAT:  optvalue.fVal = (float) atof(optarg); break;
+    case SO_VAL_FLOAT:  optvalue.fVal = (float) atof((char *)optarg); break;
 
-    case SO_VAL_DOUBLE: optvalue.dVal = atof(optarg); break;
+    case SO_VAL_DOUBLE: optvalue.dVal = atof((char *)optarg); break;
 
-    case SO_VAL_ARRAY:  optvalue.aVal = item->valueArray; break;
+    case SO_VAL_ARRAY:  optvalue.aVal = (char **) item->valueArray; break;
+
     default:
       assert(false);
   }
 
-  return (complement == UNSET)? item->id : - item->id; 
+  return item->id; 
 }
 
   
-extern void scanopt_usage_options(option_t option_list[], char *indent) {
-  option_t item;
+extern void scanopt_usage_options(scanopt_t instance, char *indent) {
+  option_t *options = instance->options;
+  int      optmax   = instance->max;
+  option_t *item;
   char     *format;
 
+  scanopt_names_t *names;
+  scanopt_usage_t *usage;
+  scanopt_variable_t *variable;
+
   fprintf(stdout, "Options\n");
-  for (int i = 0; option_list[i].id != 0; i++) {
-    item = option_list[i];
+
+  for (int i = 0; i < optmax; i++) {
+    names = options[i].names;
+    usage = options[i].usage;
+    variable = options[i].variable;
 
     // must have at least a longName or shortName to be a proper option
-    if (item.longName == NULL && item.shortName == NULL ) {
+    if (names->longName == NULL && names->shortName == NULL ) {
       continue;
     }
 
     fprintf(stdout, "%s", indent);
 
-    if (item.format == NULL ) {
-      format = "arg";
-    } else {
-      format = item.format;
-    }
+    format = "arg";
+    if (usage != NULL && usage->format != NULL)  format = usage->format;
+
 
     // SHORT NAME
-    if (item.shortName != NULL) {
-      fprintf(stdout, "-%s", item.shortName);
+    if (names->shortName != NULL) {
+      fprintf(stdout, "-%s", names->shortName);
  
-      switch(SO_ARG_TYPE(item.type)) {
+      switch(names->type) {
         case SO_ARG_OPTIONAL:
           // no space before the option
           fprintf(stdout, "[%s]", format);
@@ -316,15 +478,15 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
           fprintf(stdout, " %s", format);
           break;
       }
-      if (item.longName != NULL) {
+      if (names->longName != NULL) {
         fprintf(stdout, ", ");
       }
     }
 
     /// LONG NAME
-    if (item.longName != NULL) {
-      fprintf(stdout, "--%s", item.longName);
-      switch(SO_ARG_TYPE(item.type)) {
+    if (names->longName != NULL) {
+      fprintf(stdout, "--%s", names->longName);
+      switch(names->type) {
         case SO_ARG_OPTIONAL:
           // no space before the option
           fprintf(stdout, "[=%s]", format);
@@ -338,15 +500,15 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
     fprintf(stdout, "\n");
 
     // DESCRIPTION
-    if (item.description != NULL) {
-      fprintf(stdout, "%s%s%s\n", indent, indent, item.description);
+    if (usage != NULL && usage->text != NULL) {
+      fprintf(stdout, "%s%s%s\n", indent, indent, usage->text);
     }
     
-    if (item.defaultValue != NULL) {
-      fprintf(stdout, "\n%s%sDEFAULT: %s", indent, indent, item.defaultValue);
+    if (variable != NULL && variable->defaultValue != NULL) {
+      fprintf(stdout, "\n%s%sDEFAULT: %s", indent, indent, variable->defaultValue);
     }
-    if (item.envName != NULL) {
-      fprintf(stdout, "\n%s%sENVIRONMENT VARIABLE: %s\n", indent, indent, item.envName);
+    if (names->envName != NULL) {
+      fprintf(stdout, "\n%s%sENVIRONMENT VARIABLE: %s\n", indent, indent, names->envName);
     }
     fprintf(stdout, "\n");
   }
@@ -354,28 +516,35 @@ extern void scanopt_usage_options(option_t option_list[], char *indent) {
 }
 
 
-extern void scanopt_usage_envs(option_t option_list[], char *indent) {
-  option_t item;
+extern void scanopt_usage_envs(scanopt_t instance, char *indent) {
+  option_t *options = instance->options;
+  int      optmax   = instance->max;
+  option_t *item;
+
+  scanopt_names_t *names;
+  scanopt_usage_t *usage;
+  scanopt_variable_t *variable;
+
   char     *format;
+
 
   fprintf(stdout, "Environment\n");
 
-  for (int i = 0; option_list[i].id != 0; i++) {
-    item = option_list[i];
+  for (int i = 0; i < optmax; i++) {
+    names = options[i].names;
+    usage = options[i].usage;
+    variable = options[i].variable;
 
-    if (item.envName == NULL) continue;
+    if (names->envName == NULL) continue;
 
     fprintf(stdout, "%s", indent);
 
-    if (item.format == NULL ) {
-      format = "arg";
-    } else {
-      format = item.format;
-    }
+    format = "arg";
+    if (usage != NULL && usage->format != NULL) format = usage->format;
     
-    fprintf(stdout, "%s", item.envName);
+    fprintf(stdout, "%s", names->envName);
 
-    switch(SO_ARG_TYPE(item.type)) {
+    switch(names->type) {
       case SO_ARG_NONE: break;
       case SO_ARG_OPTIONAL:
         // no space before the option
@@ -391,72 +560,41 @@ extern void scanopt_usage_envs(option_t option_list[], char *indent) {
     //   1. it is a covered by a command line option
     //   1. it is NOT covered by a command line option
 
-    if (item.longName != NULL)
-      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, item.longName);
+    if (names->longName != NULL)
+      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, names->longName);
 
-    if (item.longName == NULL && item.shortName != NULL)
-      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, item.shortName);
+    if (names->longName == NULL && names->shortName != NULL)
+      fprintf(stdout, "%s%sSee --%s above.\n", indent, indent, names->shortName);
 
-    if (item.longName == NULL && item.shortName == NULL) {
-      if (item.description != NULL) {
-        fprintf(stdout, "%s%s%s\n", indent, indent, item.description);
+    if (names->longName == NULL && names->shortName == NULL) {
+      if (usage->text != NULL) {
+        fprintf(stdout, "%s%s%s\n", indent, indent, usage->text);
       }
-      if (item.defaultValue != NULL) {
-        fprintf(stdout, "%s%sDEFAULT: %s\n", indent, indent, item.defaultValue);
+      if (variable != NULL && variable->defaultValue != NULL) {
+        fprintf(stdout, "%s%sDEFAULT: %s\n", indent, indent, variable->defaultValue);
       }
-      fprintf(stdout, "\n");
     }
   }
   return;
 }
 
 
-// Option Declaration Functions
-
-extern option_t *scanopt_declare_option(option_t option_list[], int id, int argType, char *longName, char *shortName, char *envName, size_t size) {
-  // Alternative way to define a option_list incrementally
-
-  option_t *item;
-
-  item = &option_list[optmax]; optmax ++;
-  assert(optmax < size);
-  assert(item -> id == 0);
-
-  item->id        = id;
-  item->type      = argType;
-  item->shortName = shortName;
-  item->longName  = longName;
-  item->envName   = envName;
-
-  return item;
-};
-
-
-extern option_t *scanopt_declare_complement(option_t option_list[], int id, int argType, char *longName, char *shortname, char *envName, size_t size) {
-  assert(false);
-}
-
-extern option_t *scanopt_declare_env(option_t option_list[], int id, int argType, char *envName, void * variable, size_t size) {
-  option_t *item;
-
-  item = scanopt_declare_option(option_list, id, argType, NULL, NULL, envName, size);
-  scanopt_assign_variable(item, &variable, argType, NULL, NULL);
-
-  return item;
-}
-
 
 // set the global default for action to take on duplicate
-extern void scanopt_set_ondup(int value) {
+extern void scanopt_set_ondup(scanopt_t instance, int value) {
 
-  extern int optondup;
 
   switch (value) {
     case SO_DUP_OVERWRITE:
     case SO_DUP_IGNORE:
-    case SO_DUP_APPEND:
     case SO_DUP_ERROR:
-       optondup = value;
+      instance->onDup = value;
+      break;
+
+    case SO_DUP_APPEND:
+      assert(false);
+      break;
+
     default:
       fprintf(stderr, "Attempt to assign an illegal value to optoverwrite\n");
       exit(1);
@@ -464,104 +602,73 @@ extern void scanopt_set_ondup(int value) {
 }
 
 
-// Option Definition Functions
-
-extern void scanopt_assign_variable(option_t *item, void *variable, int type, char *initValue, char *defaultValue) {
-
-  item->type = item->type | type;
-  item->variable = variable;
-  item->initValue = initValue;
-  item->defaultValue = defaultValue;
-  return;
-}
-
-
-extern void scanopt_assign_flag(option_t *item, void *variable) {
-  scanopt_assign_variable(item, variable, SO_FLAG, "0", NULL);
-  return;
-}
-
-
-extern void scanopt_assign_nflag(option_t *item, void *variable) {
-  scanopt_assign_variable(item, variable, SO_NFLAG, "1", NULL);
-  return;
-}
-
-
-extern void scanopt_assign_usage(option_t *item, char *format, char *description) {
-  item->format = format;
-  item->description = description;
-  return;
-}
-
 
 // Access functions
-extern option_t *scanopt_find(int id, option_t option_list[]) {
-  int i;
 
-  for(int i = 0; option_list[i].id != 0; i++ ) {
-    if (option_list[i].id == id) 
-      return &(option_list[i]);
+static scanopt_usage_t *search_usage(int id, scanopt_usage_t usage[]) {
+
+  for (int i = 0; usage[i].id != 0; i++) {
+    if (usage[i].id == id) return &(usage[i]);
   }
+  return NULL;
+}
 
+static scanopt_variable_t *search_variable(int id, scanopt_variable_t variable[]) {
+
+  for (int i = 0; variable[i].id != 0; i++) {
+    if (variable[i].id == id) return &(variable[i]);
+  }
+  return NULL;
+}
+
+static option_t *find_id(int id, option_t options[]) {
+
+  for (int i = 0; options[i].id != 0; i++ ) {
+    if (options[i].id == id) return &(options[i]);
+  }
   return NULL;
 }
 
 
-extern option_t *scanopt_find_shortName(int ch, option_t option_list[]) {
+extern option_t *find_shortName(int ch, option_t options[]) {
+  option_t        *item;
+  scanopt_names_t *names;
 
-  for(int i = 0; option_list[i].id != 0; i++ ) {
-    if (option_list[i].shortName == NULL) continue;
-    if (option_list[i].shortName[0] == ch) 
-      return &(option_list[i]);
-  }
+  for (int i = 0; options[i].names != 0; i++ ) {
+    item = options+i;
+    names = item->names;
 
-  return NULL;
-}
-
-
-extern option_t *scanopt_find_envName(char *name, option_t option_list[]) {
-
-  for(int i = 0; option_list[i].id != 0; i++ ) {
-    if (option_list[i].envName == NULL) continue;
-    if (strcmp(name, option_list[i].envName) == 0)
-      return &(option_list[i]);
-  }
-
-  return NULL;
-}
-
-
-
-// Secondary API  (called within but could be used by...)
-extern void scanopt_initialize(option_t option_list[]) {
-  option_t item;
-  extern int optmax;
-
-  for (optmax = 0; option_list[optmax].id != 0; optmax++) {
-    item = option_list[optmax];
-
-    if (item.id < 0) continue;
-
-    // Initialize working data!
-    item.value = NULL;
-    for(int i = 0; i < SO_DUP_MAX; i++) {
-      if (item.valueArray[i] == NULL)  break;
-      item.valueArray[i] = NULL;
-    }
-    item.count = 0;
-
-    item.value = item.initValue;  // this is not really needed
-
-    if (item.variable != NULL) {
-      assign_variable(item.variable, SO_VAL_TYPE(item.type), item.initValue);
+    if (names->shortName == NULL)  continue;
+    if (names->shortName[0] == ch) {
+      item  = options+i;
+      if (SO_IS_OPTION_SYN(item)) {
+        item = find_id(SO_OPTION_ROOT(item), options);
+      }
+      return item;
     }
   }
-  return;
+  return NULL;
+}
+
+static option_t *find_longName(char *longName, option_t options[]) {
+  assert(false);
+}
+static option_t *find_envName(char *envName, option_t options[]) {
+
+  assert(false);
+  // for (int i = 0; options[i].id != 0; i++ ) {
+  //   if (options[i].envName == NULL) continue;
+  //   if (strcmp(name, options[i].envName) == 0)
+  //     return &(options[i]);
+  // }
+
+  // return NULL;
 }
 
 
-extern void scanopt_validate(option_t option_list[]) {
+
+
+extern void scanopt_validate(scanopt_t instance) {
    // must have at least a longName, shortName, or envName
    // shortName is a single character
    // shortName does not use ':' nor '?'
@@ -569,43 +676,65 @@ extern void scanopt_validate(option_t option_list[]) {
    //   -- SO_COMPLEMENT:  SO_ARG_NONE with SO_VAL_SET or SO_VAL_UNSET
    //       - id must be the opposite
 
- 
+// check to see that SO_COMP() is present in the table
+// check to see that SO_SYN() is present in the table
+// names that are the null string
+
+// SYN and COMP that have multiple envNames,
+// the order matters, so give warning if
+// more than one is provided (and are different).
+
+// args to variables->type is 0,1,2, or 0xFF...
+//an initial value of 1 if SET
+//an initial value of 0 if unset
+
+// SO_SYN only valid in names
+// SO_COMP only valid in variables
+
    // ARG_TYPE Constraints
    //  ARG_TYPE         VAL_TYPE      INITIAL        DEFAULT
    //  no_argument,     SET | UNSET,  initial value
    //  option_argument,           *,  initial value, default value
    //  required_value,            *,  initial value
- 
-   // NOT checked: if (id > 0), it is unique within the option_list
+  
+   // NOT checked: if (id > 0), it is unique within the options
    // should we or should we not have an ENV
 
+ option_t  *options = instance->options;
+ int       optmax   = instance->max;
 
- option_t *item;
- option_t *root_item;
- int i;
+ option_t  *item;
+ option_t  *root_item;
+
+ scanopt_names_t *names;
+ scanopt_variable_t *variable;
+
  int isError = false;
 
- for(i = 0; option_list[i].id != 0; i++ ) {
-    item = option_list+i;
+ for (int i = 0; options[i].id != 0; i++ ) {
+    item = options+i;
+
+    names = item->names;
+    variable = item->variable;
 
     // NAMING CONSTRAINTS
-    if (item->longName == NULL && 
-        item->shortName == NULL &&
-        item->envName == NULL) {
+    if (names->longName == NULL && 
+        names->shortName == NULL &&
+        names->envName == NULL) {
       fprintf(stderr, "Option #%d: Needs a name\n", item->id);
       isError = true;
     }
-    if (item->longName != NULL && item->longName[0] == '\0') {
+    if (names->longName != NULL && names->longName[0] == '\0') {
       fprintf(stderr, "Option #%d: Long name can't be \"\"\n", item->id);
       isError = true;
     }
-    if (item->envName != NULL && item->envName[0] == '\0') {
+    if (names->envName != NULL &&  names->envName[0] == '\0') {
       fprintf(stderr, "Option #%d: Environment name can't be \"\"\n", item->id);
       isError = true;
     }
 
-    if (item->shortName != NULL) {
-      switch (item->shortName[0]) {
+    if (names->shortName != NULL) {
+      switch (names->shortName[0]) {
         case '\0':
           fprintf(stderr, "Option #%d: Short name can't be \"\"\n", item->id);
           isError = true;
@@ -618,7 +747,7 @@ extern void scanopt_validate(option_t option_list[]) {
           break;
 
         default:
-          if (item->shortName[1] != '\0') {
+          if (names->shortName[1] != '\0') {
             fprintf(stderr, "Option #%d: Short name must be a single character\n", item->id);
             isError = true;
           }
@@ -626,60 +755,62 @@ extern void scanopt_validate(option_t option_list[]) {
       }
     }
 
+   
     // COMPLEMENT CONSTRAINTS
-    if (option_list[i].id < 0) {
-      if (SO_ARG_TYPE(item->type) != SO_ARG_NONE) {
-        fprintf(stderr,"Option \"%s\" must have no arguments\n", SO_OPTION_NAME(item));
+    if (item->id < 0) {
+      if (names->type != SO_ARG_NONE) {
+        fprintf(stderr,"Option \"%s\" must have no arguments\n", SO_OPTION_NAME(names));
         isError = true;
       }
 
-      root_item = scanopt_find(- option_list[i].id, option_list);
+      root_item = find_id(- options[i].id, options);
       if (root_item->id == 0) {
-        fprintf(stderr, "Option \"%s\": Does not have a complement\n", SO_OPTION_NAME(item));
+        fprintf(stderr, "Option \"%s\": Does not have a complement\n", SO_OPTION_NAME(names));
         isError = true;
       }
       
-      switch (SO_VAL_TYPE(item->type)) {
+      switch (SO_VARIABLE_TYPE(item)) {
+        // perhaps the complement must NOT HAVE any data defined
         case SO_VAL_SET:
-          if (SO_VAL_TYPE(root_item->type) != SO_VAL_UNSET) {
-            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item));
+          if (SO_VARIABLE_TYPE(root_item) != SO_VAL_UNSET) {
+            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item->names));
             isError = true;
           }
-          if (root_item->initValue == NULL) {
-            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item));
+          if (SO_DEFAULT_VAL(root_item) == NULL) {
+            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item->names));
             isError = true;
           }
           break;
 
         case SO_VAL_UNSET:
-          if (SO_VAL_TYPE(root_item->type) != SO_VAL_SET) {
-            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item));
+          if (SO_VARIABLE_TYPE(root_item) != SO_VAL_SET) {
+            fprintf(stderr, "Option \"%s\": Improperly defined as a complement\n", SO_OPTION_NAME(root_item->names));
             isError = true;
           }
-          if (root_item->initValue == NULL) {
-            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item));
+          if (SO_INIT_VAL(root_item) == NULL) {
+            fprintf(stderr, "Option \"%s\": Must be assigned an initial value\n", SO_OPTION_NAME(root_item->names));
             isError = true;
           }          
           break;
 
         default:
-          fprintf(stderr, "Option \"%s\": Improperly defined complement\n", SO_OPTION_NAME(item));
+          fprintf(stderr, "Option \"%s\": Improperly defined complement\n", SO_OPTION_NAME(names));
           isError = true;
           break;
       }
 
-      if (SO_DUP_TYPE(root_item->type) != SO_DUP_OVERWRITE) {
-        fprintf(stderr, "Option \"%s\": Must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item));
+      if (SO_VARIABLE_DUP(root_item) != SO_DUP_OVERWRITE) {
+        fprintf(stderr, "Option \"%s\": Must use \"overwrite\" mode\n", SO_OPTION_NAME(root_item->names));
         isError = true;
       }
     }
     // END OF COMPLEMENT CONSTRAINTS
 
     // ARG_TYPE CONSTRAINTS
-    switch (SO_ARG_TYPE(item->type)) {
+    switch (SO_NAME(item, type)) {
       case SO_ARG_REQUIRED:      
-        if (item -> defaultValue != NULL) {
-          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(item));
+        if (SO_DEFAULT_VAL(item) != NULL) {
+          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(names));
           isError = true;
         }
         break;
@@ -687,16 +818,16 @@ extern void scanopt_validate(option_t option_list[]) {
         break;
 
       case SO_ARG_NONE:
-        if (item -> defaultValue != NULL) {
-          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(item));
+        if (SO_DEFAULT_VAL(item) != NULL) {
+          fprintf(stderr, "Error: superfluous default value assigned to: %s\n", SO_OPTION_NAME(names));
           isError = true;
         }
-        switch (SO_VAL_TYPE(item->type)) {
+        switch (SO_VARIABLE_TYPE(item)) {
           case SO_VAL_NULL:  // merge
           case SO_VAL_SET:   // merge
           case SO_VAL_UNSET: break;
           default:
-            fprintf(stderr, "Illegal value type assigned to an option with no arguments: %s\n", SO_OPTION_NAME(item));
+            fprintf(stderr, "Illegal value type assigned to an option with no arguments: %s\n", SO_OPTION_NAME(names));
             isError = true;
         }
         break;
@@ -710,17 +841,14 @@ extern void scanopt_validate(option_t option_list[]) {
 }
 
 
-extern void scanopt_apply_environment(option_t option_list[]) {
+extern void scanopt_apply_environment(scanopt_t instance) {
+  option_t *options = instance->options;
   option_t *item;
 
-  for (int i = 0; option_list[i].id != 0; i++) {
-    item = option_list+i;
+  for (int i = 0; options[i].id != 0; i++) {
+    item = options+i;
 
-    if (item->id < 0) continue;
-    if (item->count > 0) continue;
-
-    apply_env(item, option_list);
-
+    if (item->count == 0) apply_env(item, options);
   }
 }
 
@@ -728,22 +856,32 @@ extern void scanopt_apply_environment(option_t option_list[]) {
 ///////////////////////////////////////////////////////
 
 
-static void assign_variable(void *variable, int type, char *val) {
+static void assign_variable(scanopt_variable_t *variable, void *val) {
 
+  void *address;
+  int   type;
+
+  if (variable == NULL) return;
+
+  address = variable->address;
+  if (address == NULL) return;
+
+  type    = variable->type;
   switch (SO_VAL_TYPE(type)) {
-    case SO_VAL_TEXT:   (* (char **) variable) = val; break;
+    case SO_VAL_TEXT:   (* (char **) address) = (char *)val; break;
 
     case SO_VAL_SET:    //merge
     case SO_VAL_UNSET:  //merge
-    case SO_VAL_INT:    (* (int *) variable) = atoi(val); break;
+    case SO_VAL_COUNT:  //merge
+    case SO_VAL_INT:    (* (int *) address) = atoi((char *)val); break;
 
-    case SO_VAL_LONG:   (* (int *) variable) = atol(val); break;
+    case SO_VAL_LONG:   (* (int *) address) = atol((char *)val); break;
 
-    case SO_VAL_FLOAT:  (* (float *) variable) = (float) atof(val); break;
+    case SO_VAL_FLOAT:  (* (float *) address) = (float) atof((char *)val); break;
 
-    case SO_VAL_DOUBLE: (* (double *) variable) = atof(val); break;
+    case SO_VAL_DOUBLE: (* (double *) address) = atof((char *)val); break;
 
-    //case SO_VAL_ARRAY:  (* (char ***) variable) = ???; break;
+    case SO_VAL_ARRAY:  (* (char ***) address) = (char **)val; break;
 
     default:
       assert(false);
@@ -752,23 +890,33 @@ static void assign_variable(void *variable, int type, char *val) {
 }
 
 
-static void apply_env(option_t *item, option_t option_list[]) {
+static void apply_env(option_t *item, option_t options[]) {
 
-  assert(! (item->id < 0) );  // What do we do for complements
+  char * envName;
+  int complement = false;
 
-  if (item->envName != NULL) {
-    char *value = getenv(item->envName);
+  // need to determine what to do with a complement env
+  // either: a complement item can't have a env, ignore or error
+  // or: we apply, and the last one wins
+
+  envName = SO_NAME(item, envName);
+
+  if (envName != NULL) {
+    char *value = getenv(envName);
     if (value != NULL) {
       item->count++;
-      optcount ++;
-      define_option(item, value, option_list);
+      define_option(item, complement, value);
     }
   }
 }
 
 
-static void define_option(option_t *item, char *value, option_t option_list[]) {
-  // Update the 'value' base up
+// Here we use asprintf, as such, we have a memory leak--so to say! because of SO_VAL_COUNT
+// it is possible to blow the stack by putting to many args on the command line
+// we essentially double the space needed for the command lined by no more
+// can't free as we ca
+static void define_option(option_t *item, int complement, char *value) {
+  // Update the 'value' base upon
   //   case
   //      required_multiple: copy value    to item->value
   //      required:          copy value    to item->value
@@ -776,29 +924,42 @@ static void define_option(option_t *item, char *value, option_t option_list[]) {
   //      optional_missing:  copy default  to item->value
   //      none:              nothing       but address SET/UNSET
 
-  switch(SO_ARG_TYPE(item->type)) {
+  switch (SO_OPTION_ARG(item)) {
     case SO_ARG_NONE:
-      {
-         if (item->id < 0) {
-          item = scanopt_find(-(item->id), option_list);
-         }
-         switch (SO_VAL_TYPE(item->type)) {
-           case SO_VAL_SET:    item->value = "1";   break;
-           case SO_VAL_UNSET:  item->value = "0";   break;
-           default:            break;
-         }
+      switch (SO_VARIABLE_TYPE(item)) { 
+        case SO_VAL_SET:
+          item->value = (complement == false) ? "1" : "0";
+          break;
+
+        case SO_VAL_UNSET:
+          item->value = (complement == false) ? "0" : "1";
+          break;
+
+        case SO_VAL_COUNT:
+          asprintf(&(item->value), "%d", (atoi(item->value) + 1));
+
+        default: 
+          break;
       }
       break;
 
     case SO_ARG_OPTIONAL:
-      if (value == NULL)
-        item->value = item->defaultValue;
-      else
+      if (value == NULL) {
+        value = SO_DEFAULT_VAL(item);
+      }
+      if ((SO_VARIABLE_TYPE(item) != SO_VAL_COUNT)) {
         item->value = value;
+      } else {
+        asprintf(&(item->value), "%d", (atoi(item->value) + atoi(value)));
+      }
       break;
 
     case SO_ARG_REQUIRED: 
-      item->value = value;
+      if ((SO_VARIABLE_TYPE(item) != SO_VAL_COUNT)) {
+        item->value = value;
+      } else {
+        asprintf(&(item->value), "%d", (atoi(item->value) + atoi(value)));
+      }
       break;
       
     default:
@@ -806,18 +967,21 @@ static void define_option(option_t *item, char *value, option_t option_list[]) {
       break;
   }
 
-  if (SO_DUP_TYPE(item->type) == SO_DUP_APPEND) {
+  // this needs to be moved, it is for only first
+  // this function was refacted not to be ONLY first
+  if (SO_IS_DUP_APPEND(item)) {
     item->valueArray[0] = value;
   }
   return;
 }
 
 
-static void create_optstring(char *opt_string, int length, option_t option_list[]) {
+static void create_optstring(char *opt_string, int length, option_t options[]) {
   int x; // index into opt_string
-  int i; // index into option_list
+  int i; // index into options
+  scanopt_names_t *names;
 
-  // generates the `ptstring` as per the `getopt` utility
+  // generates the `optstring` as per the `getopt` utility
   // which is identical to the `getopt_long` C API
   // e.g.,  "b:c::d:e:fhl:p:s:e:w:vV"
 
@@ -825,10 +989,12 @@ static void create_optstring(char *opt_string, int length, option_t option_list[
   opt_string[1] = ':';  // suppress error messages
   x = 2;
 
-  for (i = 0; option_list[i].id != 0; i++) {
-    if (option_list[i].shortName != NULL) {
-      opt_string[x] = option_list[i].shortName[0]; x++;
-      switch (SO_ARG_TYPE(option_list[i].type)) {
+  for (i = 0; options[i].id != 0; i++) {
+    names = options[i].names;
+
+    if (names->shortName != NULL) {
+      opt_string[x] = names->shortName[0]; x++;
+      switch (names->type) {
         case SO_ARG_NONE:  break;
         case SO_ARG_OPTIONAL:
           opt_string[x] = ':'; x++;
@@ -838,35 +1004,54 @@ static void create_optstring(char *opt_string, int length, option_t option_list[
       }
     }
   }
-  assert(i <= length);
+  opt_string[x] = '\0';
   return;
 }
 
-static void create_longopt_string(char *long_string, int length, option_t option_list[]) {
+static void create_longopt_string(char *long_string, int length, option_t options[]) {
   // generates the string as per the `get_opt` utility
   // at this time, this function is not needed
   assert(false);
 }
 
-static void create_longopt_struct(struct option *long_opt, int length, option_t option_list[]) {
-  option_t *item;
-  int i = 0;
+static void create_longopt_struct(struct option *long_opt, int length, option_t options[]) {
+  scanopt_names_t *names;
+  option_t        *item;
 
-  // generates the 'struct option' as per the
-  // `getopt_long` C API
+  int x; // index into long_opt
+  int i; // index into options
 
-  for (i = 0; option_list[i].id != 0; i++) {
-    item = &(option_list[i]);
-    long_opt[i].name    = item->longName;
-    long_opt[i].has_arg = SO_ARG_TYPE(item->type);
-    long_opt[i].flag    = NULL;
-    long_opt[i].val     = item->id << 8;
-   }
-   long_opt[i].name     = 0;
-   long_opt[i].has_arg  = 0;
-   long_opt[i].flag     = NULL;
-   long_opt[i].val      = 0;
+  int id;
+  int type;
 
-   assert(i < length);
- return;
+  // generates the 'struct option' as per the `getopt_long` C API
+  x = 0;
+  for (i = 0; options[i].id != 0; i++) {
+    item  = options+i;
+    names = options[i].names;
+
+    if (names->longName == NULL) continue;
+
+    id   = names->id;
+    type = names->type;
+
+    if (SO_IS_OPTION_SYN(item)) {    
+      id = SO_OPTION_ROOT(item);
+      item = find_id(id, options);
+      type = SO_NAME(item, type);
+    }
+
+    long_opt[x].name    = names->longName;
+    long_opt[x].has_arg = type;
+    long_opt[x].flag    = NULL;
+    long_opt[x].val     = id << 8;
+    x++;
+  }
+  long_opt[x].name     = 0;
+  long_opt[x].has_arg  = 0;
+  long_opt[x].flag     = NULL;
+  long_opt[x].val      = 0;
+
+  assert(x < length);
+  return;
 }
