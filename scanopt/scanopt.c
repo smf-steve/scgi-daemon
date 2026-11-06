@@ -30,43 +30,45 @@ extern int         optreset;
 
 extern char        *optname;
 extern int         optmax;
-extern opt_value_t optvalue;
+extern opt_value_t optval;
 
 char              *optname;
-extern char *         optarg;
+extern char       *optarg;
 int               optcount = 0;
-opt_value_t       optvalue;
-
-
-
-
+opt_value_t       optval;
 
 
 #define SO_DEFINE_NAME(names) ((names->longName != NULL) ? names->longName : \
                               ((names->envName  != NULL)? names->envName : names->shortName))
+
+// scanopt_names_t *names;
+//
+// The type field is a bit-field that determines
+//   1. If the option is a basic option, a synonym, or a complement
+//   1. A basic option is one of: non, required, optional
+//
+//    type =  00 00 00 xx  : SO_TYPE_BASIC:  xx is the ARG_TYPE
+//    type =  xx 00 00 00  : !SO_TYPE_BASIC: xx determines syn or comp
+//    type =  00 xx xx xx  : !SO_TYPE_BASIC: xx xx xx is an option id
 
 #define SO_OPTION_NAME(item)  (item->name)
 #define SO_OPTION_ROOT(item)  (item->names->type & 0x00FFFFFF)
 #define SO_OPTION_TYPE(item)  (item->names->type & (0xFF << 24))
 #define SO_OPTION_ARG(item)   (item->names->type & 0xFF)
 
+#define SO_NAME(item, tag)    (item->names->tag)
 
-#define SO_NAME(item, tag)     (item->names->tag)
+// scanopt_variables_t *variable;
 #define SO_VARIABLE_TYPE(item) ((item->variable == NULL)? SO_VAL_NULL : (SO_VAL_TYPE(item->variable->type)))
-#define SO_VARIABLE_DUP(item)  ((item->variable == NULL)? SO_VAL_NULL : (SO_DUP_TYPE(item->variable->type)))
-
-
-
+#define SO_VARIABLE_DUP(item)  ((item->variable == NULL)? SO_DUP_DEFAULT : (SO_DUP_TYPE(item->variable->type)))
 #define SO_INIT_VAL(item)      ((item->variable == NULL)? NULL : (item->variable->initValue))
 #define SO_DEFAULT_VAL(item)   ((item->variable == NULL)? NULL : (item->variable->defaultValue))
-
-
 
 #define SO_IS_OPTION_ROOT(item)     (SO_OPTION_TYPE(item) == SO_TYPE_ROOT)
 #define SO_IS_OPTION_SYN(item)      (SO_OPTION_TYPE(item) == SO_TYPE_SYN)
 #define SO_IS_OPTION_COMP(item)     (SO_OPTION_TYPE(item) == SO_TYPE_COMP)
 
-
+// definitions associated the variable->type
 #define SO_VAL_TYPE(type)  (type & 0x00f0)
 #define SO_VAL_MASK        (0xff0f)
 
@@ -88,9 +90,10 @@ typedef struct {
   scanopt_variable_t *variable;
 
   // Working data:
-  char     *value;
-  char     *valueArray[SO_DUP_MAX];   // argv-style array of values
-  int      count;                     // command-line reference count
+  opt_value_t optval;                   // The optarg converted to the appropriate type
+  char        *optarg;                 // The actual text string provided on the command line, subject to overwriting
+  char        *argArray[SO_DUP_MAX];   // argv-style array of values
+  int         count;                   // command-line reference count
 } option_t;
 
 
@@ -103,19 +106,15 @@ struct scanopt_instance_t {
 };
 
 
-// Access functions
-// make the api of find_* based upon scanopt_name_t table
-
+// Support Functions
+// Find and search functions
 static option_t *find_id(int id, option_t options[]);
-//static option_t *find_longName(char *longName, option_t options[]) {
 static option_t *find_shortName(int ch, option_t options[]);
-//static option_t *find_envName(char *env, option_t options[]);
-
 static scanopt_usage_t    *search_usage(int id, scanopt_usage_t usage[]);
 static scanopt_variable_t *search_variable(int id, scanopt_variable_t variable[]);
 
 
-static void assign_variable(scanopt_variable_t *variable, void *val);
+static void assign_variable(option_t *item, void *address);
 
 static void define_option(option_t *item, int complement, char *value);
 
@@ -136,7 +135,7 @@ static void create_longopt_string(char *opt_string, int length, option_t options
 //   e.g., "flag,required:,optional::, ...."
 
 
-static void apply_env(option_t *item, option_t options[]);
+static void apply_env(option_t *item);
 
 
 ///////////////////////////////////////////////
@@ -146,14 +145,18 @@ extern scanopt_t scanopt_create(int size) {
 
   space = sizeof(struct scanopt_instance_t) + sizeof(option_t)*(size + 1);
   scanopt_t instance = calloc(space, sizeof(char));
+
+  // instance->optvalue.sVal = NULL;
+  // upon scanopt_next, should the optvalue structure be filled with all of the 
+  // formally global variables associated with getopt_long
+  //  if so then within main.c:   options.optarg, options. optval, etc. are defined
+
   instance->max  = size;
+  instance->count = 0;
+  instance->onDup = SO_DUP_OVERWRITE;
 
   // The rest do not need to be initialized, since `calloc`
   // was used to allocate the spaces--all are zeros
-  //
-  // instance->value.sVal = NULL;
-  // instance->count = 0;
-  // instance->onDup = SO_DUP_OVERWRITE;
   // for (int i = 0; i <= size; i++) {
   //   instance -> options[i].id = 0;
   // }
@@ -190,13 +193,13 @@ extern scanopt_t scanopt_new(scanopt_names_t names[], scanopt_usage_t usage[], s
     item->variable = search_variable(item->id, variable);
 
     // All is set to zero, so the following is not needed.
-    item->value = NULL;
+    item->optarg = NULL;
     for (int i = 0; i <= SO_DUP_MAX; i++) {
-      if (item->valueArray[i] == NULL)  break;
-      item->valueArray[i] = NULL;
+      if (item->argArray[i] == NULL)  break;
+      item->argArray[i] = NULL;
     }
     item->count = 0;
-    item->value = SO_INIT_VAL(item);
+    item->optarg = SO_INIT_VAL(item);
   }
   return instance;
 }
@@ -286,12 +289,9 @@ extern int scanopt_scan(scanopt_t instance, int argc, char *argv[]) {
 
     ///////////////////////////////////////////////
     // Subsequent use of the option
-    if (item->variable == NULL) {
-      onDup = instance->onDup;
-    } else {
-      onDup = SO_VARIABLE_DUP(item);
-    }
 
+    onDup = SO_VARIABLE_DUP(item);
+    if (onDup == SO_DUP_DEFAULT) onDup = instance->onDup;
     switch (onDup) {
       case SO_DUP_ERROR:
         fprintf(stderr, "Invalid duplicate use of --%s\n", SO_OPTION_NAME(item));
@@ -308,7 +308,7 @@ extern int scanopt_scan(scanopt_t instance, int argc, char *argv[]) {
         break;
 
       case SO_DUP_APPEND:
-        item->valueArray[item->count] = optarg;
+        item->argArray[item->count] = optarg;
         assert(item->count < SO_DUP_MAX );
         break;
   
@@ -320,7 +320,6 @@ extern int scanopt_scan(scanopt_t instance, int argc, char *argv[]) {
   return optind;
 }
 
-// need to deal with optcount
 
 extern int scanopt_next(scanopt_t instance) {
   option_t *options = instance->options;
@@ -382,37 +381,26 @@ extern int scanopt_next(scanopt_t instance) {
     if (SO_IS_OPTION_SYN(item)) continue;
     if (SO_IS_OPTION_COMP(item)) continue;
 
-    if (item->count == 0) apply_env(item, options);
+    if (item->count == 0) apply_env(item);
+      // Should this be moved up before the continues
 
   } while (item->count == 0);
 
-  optname = SO_OPTION_NAME(item);
-  optarg = item->value;
-  optcount = item->count;
 
-  assign_variable(item->variable, (void *)optarg);
 
-  // Can I merge the following in with assign_variable?
-  switch (SO_VARIABLE_TYPE(item)) {
-    case SO_VAL_TEXT:   optvalue.sVal = (char *)optarg; break;
-
-    case SO_VAL_SET:    //merge
-    case SO_VAL_UNSET:  //merge
-    case SO_VAL_COUNT:  //merge
-    case SO_VAL_INT:    optvalue.iVal = atoi((char *)optarg); break;
-
-    case SO_VAL_LONG:   optvalue.lVal = atol((char *)optarg); break;
-
-    case SO_VAL_FLOAT:  optvalue.fVal = (float) atof((char *)optarg); break;
-
-    case SO_VAL_DOUBLE: optvalue.dVal = atof((char *)optarg); break;
-
-    case SO_VAL_ARRAY:  optvalue.aVal = (char **) item->valueArray; break;
-
-    default:
-      assert(false);
+  if (item->variable == NULL) {
+    // default as a regular text based argument.
+    item->optval.sVal = item->optarg;
+  } else {
+    assign_variable(item, (void *) item->variable->address);
+    assign_variable(item, (void *) &(item->optval));
   }
 
+  optname  = SO_OPTION_NAME(item);
+  optarg   = item->optarg;
+  optval   = item->optval;
+  optcount = item->count;
+  
   return item->id; 
 }
 
@@ -569,11 +557,8 @@ extern void scanopt_set_ondup(scanopt_t instance, int value) {
     case SO_DUP_OVERWRITE:
     case SO_DUP_IGNORE:
     case SO_DUP_ERROR:
-      instance->onDup = value;
-      break;
-
     case SO_DUP_APPEND:
-      assert(false);
+      instance->onDup = value;
       break;
 
     default:
@@ -581,71 +566,6 @@ extern void scanopt_set_ondup(scanopt_t instance, int value) {
       exit(1);
   }
 }
-
-
-
-// Access functions
-
-static scanopt_usage_t *search_usage(int id, scanopt_usage_t usage[]) {
-
-  for (int i = 0; usage[i].id != 0; i++) {
-    if (usage[i].id == id) return &(usage[i]);
-  }
-  return NULL;
-}
-
-static scanopt_variable_t *search_variable(int id, scanopt_variable_t variable[]) {
-
-  for (int i = 0; variable[i].id != 0; i++) {
-    if (variable[i].id == id) return &(variable[i]);
-  }
-  return NULL;
-}
-
-static option_t *find_id(int id, option_t options[]) {
-
-  for (int i = 0; options[i].id != 0; i++ ) {
-    if (options[i].id == id) return &(options[i]);
-  }
-  return NULL;
-}
-
-
-extern option_t *find_shortName(int ch, option_t options[]) {
-  option_t        *item;
-  scanopt_names_t *names;
-
-  for (int i = 0; options[i].names != 0; i++ ) {
-    item = options+i;
-    names = item->names;
-
-    if (names->shortName == NULL)  continue;
-    if (names->shortName[0] == ch) {
-      item  = options+i;
-      if (SO_IS_OPTION_SYN(item)) {
-        item = find_id(SO_OPTION_ROOT(item), options);
-      }
-      return item;
-    }
-  }
-  return NULL;
-}
-
-static option_t *find_longName(char *longName, option_t options[]) {
-  assert(false);
-}
-static option_t *find_envName(char *envName, option_t options[]) {
-
-  assert(false);
-  // for (int i = 0; options[i].id != 0; i++ ) {
-  //   if (options[i].envName == NULL) continue;
-  //   if (strcmp(name, options[i].envName) == 0)
-  //     return &(options[i]);
-  // }
-
-  // return NULL;
-}
-
 
 
 
@@ -829,49 +749,128 @@ extern void scanopt_apply_environment(scanopt_t instance) {
   for (int i = 0; options[i].id != 0; i++) {
     item = options+i;
 
-    if (item->count == 0) apply_env(item, options);
+    if (item->count == 0) apply_env(item);
   }
 }
 
 
+
+// Access functions
+
+static scanopt_usage_t *search_usage(int id, scanopt_usage_t usage[]) {
+
+  for (int i = 0; usage[i].id != 0; i++) {
+    if (usage[i].id == id) return &(usage[i]);
+  }
+  return NULL;
+}
+
+
+static scanopt_variable_t *search_variable(int id, scanopt_variable_t variable[]) {
+
+  for (int i = 0; variable[i].id != 0; i++) {
+    if (variable[i].id == id) return &(variable[i]);
+  }
+  return NULL;
+}
+
+
+static option_t *find_id(int id, option_t options[]) {
+
+  for (int i = 0; options[i].id != 0; i++ ) {
+    if (options[i].id == id) return &(options[i]);
+  }
+  return NULL;
+}
+
+
+static option_t *find_shortName(int ch, option_t options[]) {
+  option_t        *item;
+  scanopt_names_t *names;
+
+  for (int i = 0; options[i].names != 0; i++ ) {
+    item = options+i;
+    names = item->names;
+
+    if (names->shortName == NULL)  continue;
+    if (names->shortName[0] == ch) {
+      item  = options+i;
+      if (SO_IS_OPTION_SYN(item)) {
+        item = find_id(SO_OPTION_ROOT(item), options);
+      }
+      return item;
+    }
+  }
+  return NULL;
+}
+
+
+
+
+///////////////////////////////////////////////////////
+// STATIC Support Functions
 ///////////////////////////////////////////////////////
 
+// Defines item->optarg = value;
+static void define_option(option_t *item, int complement, char *value) {
+  // Update the 'value' base upon
+  //   case
+  //      required_multiple: copy value    to item->optarg
+  //      required:          copy value    to item->optarg
+  //      optional_present:  copy value    to item->optarg
+  //      optional_missing:  copy default  to item->optarg
+  //      none:              nothing       but address SET/UNSET
 
-static void assign_variable(scanopt_variable_t *variable, void *val) {
+  switch (SO_OPTION_ARG(item)) {
+    case SO_ARG_NONE:
+      switch (SO_VARIABLE_TYPE(item)) { 
+        case SO_VAL_SET:
+          item->optarg      = (complement == false) ? "1" : "0";
+          item->optval.iVal = (complement == false) ?  1  :  0 ;
+          break;
 
-  void *address;
-  int   type;
+        case SO_VAL_UNSET:
+          item->optarg      = (complement == false) ? "0" : "1";
+          item->optval.iVal = (complement == false) ?  0  :  1 ;
+          break;
 
-  if (variable == NULL) return;
+        case SO_VAL_COUNT:
+          item->optval.iVal = atoi(item->optarg) + 1;
+          break;
 
-  address = variable->address;
-  if (address == NULL) return;
+        default: 
+          break;
+      }
+      break;
 
-  type    = variable->type;
-  switch (SO_VAL_TYPE(type)) {
-    case SO_VAL_TEXT:   (* (char **) address) = (char *)val; break;
+    case SO_ARG_OPTIONAL:
+      if (value == NULL) {
+        value = SO_DEFAULT_VAL(item);
+      }
+      // merge;
 
-    case SO_VAL_SET:    //merge
-    case SO_VAL_UNSET:  //merge
-    case SO_VAL_COUNT:  //merge
-    case SO_VAL_INT:    (* (int *) address) = atoi((char *)val); break;
-
-    case SO_VAL_LONG:   (* (int *) address) = atol((char *)val); break;
-
-    case SO_VAL_FLOAT:  (* (float *) address) = (float) atof((char *)val); break;
-
-    case SO_VAL_DOUBLE: (* (double *) address) = atof((char *)val); break;
-
-    case SO_VAL_ARRAY:  (* (char ***) address) = (char **)val; break;
-
+     case SO_ARG_REQUIRED:
+      if ((SO_VARIABLE_TYPE(item) == SO_VAL_COUNT)) {
+        item->optval.iVal = item->optval.iVal + atoi(value);
+      } 
+      item->optarg = value;
+      break;
+      
     default:
       assert(false);
+      break;
+  }
+
+  // this needs to be moved, it is for only first
+  // this function was re-factored not to be ONLY first
+  if (SO_IS_DUP_APPEND(item)) {
+    item->argArray[0] = value;
   }
   return;
 }
 
-
-static void apply_env(option_t *item, option_t options[]) {
+// Defines item->optarg = ENV, 
+static void apply_env(option_t *item) {
 
   char * envName;
   int complement = false;
@@ -891,81 +890,37 @@ static void apply_env(option_t *item, option_t options[]) {
   }
 }
 
+static void assign_variable(option_t *item, void *address) {
 
-// Here we use asprintf, as such, we have a memory leak--so to say! because of SO_VAL_COUNT
-// it is possible to blow the stack by putting to many args on the command line
-// we essentially double the space needed for the command lined by no more
-// can't free as we ca
-static void define_option(option_t *item, int complement, char *value) {
-  // Update the 'value' base upon
-  //   case
-  //      required_multiple: copy value    to item->value
-  //      required:          copy value    to item->value
-  //      optional_present:  copy value    to item->value
-  //      optional_missing:  copy default  to item->value
-  //      none:              nothing       but address SET/UNSET
+  int  type;
+  char *val = item->optarg;
 
-  switch (SO_OPTION_ARG(item)) {
-    case SO_ARG_NONE:
-      switch (SO_VARIABLE_TYPE(item)) { 
-        case SO_VAL_SET:
-          item->value = (complement == false) ? "1" : "0";
-          break;
+  assert(item->variable != NULL);
 
-        case SO_VAL_UNSET:
-          item->value = (complement == false) ? "0" : "1";
-          break;
+  switch (SO_VARIABLE_TYPE(item)) {
+    case SO_VAL_TEXT:   (* (char **) address) = (char *) val; break;
 
-        case SO_VAL_COUNT:
-          { 
-            int new_value = (atoi(item->value) + 1);
+    case SO_VAL_SET:
+    case SO_VAL_UNSET:
+    case SO_VAL_COUNT:  (* (int *) address) = item->optval.iVal; break;
 
-            if (item->count > 1) free(item->value);
-            asprintf(&(item->value), "%d", new_value);
-          }
+    case SO_VAL_INT:    (* (int *) address) = atoi((char *) val); break;
 
-        default: 
-          break;
-      }
-      break;
+    case SO_VAL_LONG:   (* (int *) address) = atol((char *) val); break;
 
-    case SO_ARG_OPTIONAL:
-      if (value == NULL) {
-        value = SO_DEFAULT_VAL(item);
-      }
-      if ((SO_VARIABLE_TYPE(item) != SO_VAL_COUNT)) {
-        item->value = value;
-      } else {
-        int new_value = atoi(item->value) + atoi(value);
+    case SO_VAL_FLOAT:  (* (float *) address) = (float) atof((char *) val); break;
 
-        if (item->count > 1) free(item->value);
-        asprintf(&(item->value), "%d", new_value);
-      }
-      break;
+    case SO_VAL_DOUBLE: (* (double *) address) = atof((char *)val); break;
 
-    case SO_ARG_REQUIRED: 
-      if ((SO_VARIABLE_TYPE(item) != SO_VAL_COUNT)) {
-        item->value = value;
-      } else {
-        int new_value = atoi(item->value) + atoi(value);
+    case SO_VAL_ARRAY:  (* (char ***) address) = item->argArray; break;
 
-        if (item->count > 1) free(item->value);
-        asprintf(&(item->value), "%d", new_value);
-      }
-      break;
-      
     default:
       assert(false);
-      break;
-  }
-
-  // this needs to be moved, it is for only first
-  // this function was refacted not to be ONLY first
-  if (SO_IS_DUP_APPEND(item)) {
-    item->valueArray[0] = value;
   }
   return;
 }
+
+
 
 
 static void create_optstring(char *opt_string, int length, option_t options[]) {
@@ -998,12 +953,6 @@ static void create_optstring(char *opt_string, int length, option_t options[]) {
   }
   opt_string[x] = '\0';
   return;
-}
-
-static void create_longopt_string(char *long_string, int length, option_t options[]) {
-  // generates the string as per the `get_opt` utility
-  // at this time, this function is not needed
-  assert(false);
 }
 
 static void create_longopt_struct(struct option *long_opt, int length, option_t options[]) {

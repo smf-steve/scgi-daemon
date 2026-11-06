@@ -147,7 +147,7 @@ extern int        optreset;
 // Extension:
 extern char        *optname;   // the name of the option
 extern char        *optarg;    // the text of the option's argument
-extern opt_value_t optvalue;   // the converted value of 
+extern opt_value_t optval;   // the converted value of 
 extern int         optcount;   // the number of times the option was used
 
 
